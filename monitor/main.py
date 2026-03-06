@@ -16,10 +16,11 @@ from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from sefaz      import SefazClient
-from sienge     import SiengeClient
-from cloudflare import CloudflareClient
+from sefaz       import SefazClient
+from sienge      import SiengeClient
+from cloudflare  import CloudflareClient
 from notificacao import enviar_teams, enviar_email
+from cnpj_lookup import preencher_nomes
 
 
 def _carregar_obras() -> dict:
@@ -43,8 +44,10 @@ def processar_obra(
     estado       = cf.carregar_estado(obra_key)
     ultimo_nsu   = estado.get("ultimo_nsu", 0)
     pendentes_cf = cf.carregar_pendentes(obra_key)
+    lancadas_kv  = cf.carregar_lancadas(obra_key)
 
-    conhecidas = {n["chave"] for n in pendentes_cf}
+    conhecidas          = {n["chave"] for n in pendentes_cf}
+    chaves_lancadas_kv  = {n["chave"] for n in lancadas_kv}
 
     print(f"  NSU atual        : {ultimo_nsu}")
     print(f"  Pendentes no KV  : {len(pendentes_cf)}")
@@ -55,11 +58,20 @@ def processar_obra(
     cert_senha = os.environ[obra["cert_senha_env"]]
 
     sefaz = SefazClient(cert_path, cert_senha)
-    notas_novas, novo_nsu = sefaz.consultar_novas(ultimo_nsu)
+    notas_novas, cancelamentos, novo_nsu = sefaz.consultar_novas(ultimo_nsu)
+    notas_novas = preencher_nomes(notas_novas)
 
     print(f"  Notas desde NSU {ultimo_nsu}: {len(notas_novas)} | Novo NSU: {novo_nsu}")
 
-    # ── Etapa 3: filtra realmente novas ──
+    # ── Etapa 3: aplica cancelamentos e filtra novas ──
+    chaves_canceladas = {c["chave"] for c in cancelamentos}
+    if chaves_canceladas:
+        removidas = [p for p in pendentes_cf if p["chave"] in chaves_canceladas]
+        for r in removidas:
+            print(f"  [CANCELADA] Removendo nota {r.get('numero','')} ({r['chave'][:25]}...)")
+        pendentes_cf = [p for p in pendentes_cf if p["chave"] not in chaves_canceladas]
+        conhecidas   = {n["chave"] for n in pendentes_cf}
+
     realmente_novas = [n for n in notas_novas if n["chave"] not in conhecidas]
     print(f"  Novas (nao conhecidas): {len(realmente_novas)}")
 
@@ -76,15 +88,37 @@ def processar_obra(
 
     recem_lancadas = {p["chave"] for p in pendentes_cf if p["chave"] in lancadas}
 
+    # Acumula as recém-lançadas no histórico do KV
+    for p in pendentes_cf:
+        if p["chave"] in lancadas and p["chave"] not in chaves_lancadas_kv:
+            lancadas_kv.append(p)
+            chaves_lancadas_kv.add(p["chave"])
+
     print(f"  Pendentes novas   : {len(pendentes_novos)}")
     print(f"  Recem lancadas    : {len(recem_lancadas)}")
+    print(f"  Historico lancadas: {len(lancadas_kv)}")
 
-    # ── Etapa 6: sincroniza com Cloudflare KV ──
+    # ── Etapa 6: baixa PDFs (novas + pendentes antigas sem PDF) ──
+    sem_pdf = [n for n in pendentes_atualizados if not n.get("has_pdf")]
+    if sem_pdf:
+        print(f"  Baixando PDFs faltantes: {len(sem_pdf)}")
+    for nota in sem_pdf:
+        chave = nota["chave"]
+        try:
+            pdf = sefaz.baixar_pdf(chave)
+            if pdf:
+                cf.salvar_pdf(chave, pdf)
+                nota["has_pdf"] = True
+                print(f"    PDF salvo: {chave[:20]}...")
+        except Exception as e:
+            print(f"    Erro ao salvar PDF {chave[:20]}...: {e}")
+
+    # ── Etapa 7: sincroniza com Cloudflare KV ──
     agora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    cf.sincronizar(obra_key, pendentes_atualizados, novo_nsu, agora)
+    cf.sincronizar(obra_key, pendentes_atualizados, novo_nsu, agora, lancadas=lancadas_kv)
     print(f"  KV atualizado. NSU salvo: {novo_nsu}")
 
-    # ── Etapa 7: notifica ──
+    # ── Etapa 8: notifica ──
     if pendentes_novos:
         webhook = os.environ.get("TEAMS_WEBHOOK_URL", "")
         if webhook:

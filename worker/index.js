@@ -5,12 +5,15 @@
  *   {obra}:pendentes           → JSON array de notas pendentes
  *   {obra}:ultimo_nsu          → string com o último NSU processado
  *   {obra}:ultima_verificacao  → string ISO da última verificação
+ *   pdf:{chave}                → PDF bytes (ArrayBuffer)
  *
  * Rotas:
- *   GET  /                           → Dashboard HTML (sem auth)
- *   GET  /api/pendentes?token=...    → JSON para o SPFx web part (CORS)
- *   GET  /api/estado/:obra?token=... → Estado do NSU para o script Python
- *   POST /api/sync  (Bearer token)   → Grava notas + estado no KV
+ *   GET  /                             → Dashboard HTML
+ *   GET  /api/pendentes?token=...      → JSON para o SPFx web part (CORS)
+ *   GET  /api/estado/:obra?token=...   → Estado do NSU para o script Python
+ *   POST /api/sync  (Bearer token)     → Grava notas + estado no KV
+ *   POST /api/pdf/:chave (Bearer)      → Armazena PDF no KV
+ *   GET  /api/pdf/:chave?token=...     → Serve PDF ao browser
  */
 
 const OBRAS = [
@@ -63,12 +66,15 @@ export default {
     // ── POST /api/sync  (Bearer) ────────────────────────────────────
     if (url.pathname === '/api/sync' && request.method === 'POST') {
       if (!checkBearer()) return json({ error: 'Unauthorized' }, 401);
-      const { obra, pendentes, ultimo_nsu, ultima_verificacao } = await request.json();
+      const { obra, pendentes, lancadas, ultimo_nsu, ultima_verificacao } = await request.json();
       if (!obra) return json({ error: 'Campo "obra" obrigatorio' }, 400);
 
       await Promise.all([
         pendentes !== undefined
           ? env.KV.put(`${obra}:pendentes`, JSON.stringify(pendentes))
+          : Promise.resolve(),
+        lancadas !== undefined
+          ? env.KV.put(`${obra}:lancadas`, JSON.stringify(lancadas))
           : Promise.resolve(),
         ultimo_nsu !== undefined
           ? env.KV.put(`${obra}:ultimo_nsu`, String(ultimo_nsu))
@@ -78,6 +84,30 @@ export default {
           : Promise.resolve(),
       ]);
 
+      return json({ ok: true });
+    }
+
+    // ── GET /api/pdf/:chave?token=... ───────────────────────────────
+    if (url.pathname.startsWith('/api/pdf/') && request.method === 'GET') {
+      if (!checkToken()) return json({ error: 'Unauthorized' }, 401);
+      const chave = url.pathname.split('/api/pdf/')[1];
+      const buf = await env.KV.get(`pdf:${chave}`, 'arrayBuffer');
+      if (!buf) return new Response('PDF não encontrado', { status: 404 });
+      return new Response(buf, {
+        headers: {
+          ...cors,
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `inline; filename="${chave}.pdf"`,
+        },
+      });
+    }
+
+    // ── POST /api/pdf/:chave (Bearer) ────────────────────────────────
+    if (url.pathname.startsWith('/api/pdf/') && request.method === 'POST') {
+      if (!checkBearer()) return json({ error: 'Unauthorized' }, 401);
+      const chave = url.pathname.split('/api/pdf/')[1];
+      const buf = await request.arrayBuffer();
+      await env.KV.put(`pdf:${chave}`, buf);
       return json({ ok: true });
     }
 
@@ -188,14 +218,18 @@ function renderObra(o) {
 }
 
 async function carregarObra(obra, env) {
-  const [pendentes, nsu, verif] = await Promise.all([
+  const [pendentes, lancadas, nsu, verif] = await Promise.all([
     env.KV.get(`${obra.key}:pendentes`, 'json'),
+    env.KV.get(`${obra.key}:lancadas`, 'json'),
     env.KV.get(`${obra.key}:ultimo_nsu`, 'text'),
     env.KV.get(`${obra.key}:ultima_verificacao`, 'text'),
   ]);
   return {
     key: obra.key, nome: obra.nome,
-    pendentes: pendentes || [], ultimo_nsu: nsu || '0', ultima_verificacao: verif || '—',
+    pendentes: pendentes || [],
+    lancadas: lancadas || [],
+    ultimo_nsu: nsu || '0',
+    ultima_verificacao: verif || '—',
   };
 }
 

@@ -13,10 +13,12 @@ export interface INfseItem {
   nome_prest:   string;
   cnpj_prest:   string;
   valor:        number;
+  has_pdf?:     boolean;
 }
 
 export interface IObra {
   key:       string;
   nome:      string;
   pendentes: INfseItem[];
+  lancadas:  INfseItem[];
 }

@@ -68,6 +68,17 @@
   white-space: nowrap;
 }
 
+.badgeLancada {
+  display: inline-block;
+  background: #1F4E79;
+  color: #fff;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 // ── Botão ────────────────────────────────────
 
 .btnAtualizar {
@@ -83,6 +94,74 @@
   &:hover {
     background: rgba(255, 255, 255, 0.35);
   }
+}
+
+// ── Abas ─────────────────────────────────────
+
+.abas {
+  display: flex;
+  gap: 0;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.abaAtiva {
+  padding: 8px 20px;
+  border: none;
+  border-bottom: 3px solid #1F4E79;
+  background: transparent;
+  color: #1F4E79;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: -2px;
+}
+
+.abaInativa {
+  padding: 8px 20px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #888;
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: -2px;
+  transition: color 0.15s;
+
+  &:hover {
+    color: #1F4E79;
+  }
+}
+
+// ── Filtro ───────────────────────────────────
+
+.filtroBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.filtroInput {
+  flex: 1;
+  padding: 7px 12px;
+  border: 1px solid #cdd5e0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1a1a2e;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.filtroClear {
+  padding: 6px 10px;
+  border: 1px solid #cdd5e0;
+  border-radius: 6px;
+  background: #fff;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
 }
 
 // ── Cards de Obra ────────────────────────────
@@ -124,16 +203,26 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;   // garante que as colunas respeitem as larguras
 
   thead tr {
     background: #7B2C2C;
     color: #fff;
 
     th {
-      padding: 8px 12px;
+      padding: 8px 10px;
       text-align: left;
       font-weight: 600;
       white-space: nowrap;
+      overflow: hidden;
+
+      // Larguras fixas por coluna
+      &:nth-child(1) { width: 100px; }  // Data Emissão
+      &:nth-child(2) { width: 90px;  }  // Nº NFS-e
+      &:nth-child(3) { width: auto;  }  // Prestador (flex)
+      &:nth-child(4) { width: 145px; }  // CNPJ
+      &:nth-child(5) { width: 100px; text-align: right; }  // Valor
+      &:nth-child(6) { width: 56px;  }  // PDF
     }
   }
 
@@ -151,8 +240,11 @@
       }
 
       td {
-        padding: 7px 12px;
+        padding: 7px 10px;
         vertical-align: middle;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     }
   }
@@ -176,7 +268,7 @@
 .totalLabel {
   text-align: right;
   font-weight: 600;
-  padding: 8px 12px;
+  padding: 8px 10px;
   color: #555;
 }
 
@@ -184,7 +276,16 @@
   font-weight: 700;
   color: #7B2C2C;
   font-size: 14px;
-  padding: 8px 12px;
+  padding: 8px 10px;
+  text-align: right;
+}
+
+.totalValorLancada {
+  font-weight: 700;
+  color: #1F4E79;
+  font-size: 14px;
+  padding: 8px 10px;
+  text-align: right;
 }
 
 // ── Detalhes lançadas ────────────────────────
@@ -210,6 +311,43 @@ details[open] .lancadasSummary::before {
   content: '▼  ';
 }
 
+// ── Botão PDF ────────────────────────────────
+
+.tdPdf {
+  text-align: center;
+  padding: 4px 6px !important;
+}
+
+.btnPdf {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7B2C2C;
+  background: #fde8e8;
+  border: 1px solid #e8c4c4;
+  border-radius: 4px;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    background: #7B2C2C;
+    color: #fff;
+    border-color: #7B2C2C;
+  }
+}
+
+// ── Coluna ordenável ─────────────────────────
+
+.thSortable {
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    background: #6a2424;
+  }
+}
+
 // ── Utilitários ──────────────────────────────
 
 .direita {
@@ -219,6 +357,8 @@ details[open] .lancadasSummary::before {
 .mono {
   font-family: "Consolas", "Courier New", monospace;
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 // ── Estados ──────────────────────────────────
