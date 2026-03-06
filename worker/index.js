@@ -81,7 +81,13 @@ export default {
       return json({ ok: true });
     }
 
-    // ── GET / — Dashboard HTML ──────────────────────────────────────
+    // ── GET / — Dashboard HTML (requer token) ──────────────────────
+    if (!checkToken()) {
+      return new Response('Acesso negado. Adicione ?token=SEU_TOKEN na URL.', {
+        status: 401,
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      });
+    }
     return dashboard(env);
   },
 };
