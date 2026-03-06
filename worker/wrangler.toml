@@ -1,0 +1,8 @@
+name = "monitor-nfse"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding    = "KV"
+id         = "da8933785251406d9384e4fb3887e535"
+preview_id = "da8933785251406d9384e4fb3887e535"

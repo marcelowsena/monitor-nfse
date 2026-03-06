@@ -1,0 +1,64 @@
+# =============================================================
+# CERTIFICADOS — NUNCA commitar, contêm chave privada
+# =============================================================
+*.pfx
+*.p12
+*.pem
+*.cer
+*.der
+*.key
+certificados/
+
+# =============================================================
+# DADOS GERADOS — contêm PII e dados de fornecedores/clientes
+# =============================================================
+
+# XMLs das NFS-e (dados completos: valores, descrições, endereços)
+xmls/
+*/xmls/
+
+# PDFs — DANFSe com dados pessoais
+pdfs/
+*/pdfs/
+recente/
+*/recente/
+
+# Relatórios Excel e CSV
+*.xlsx
+*.csv
+
+# Arquivos de estado e debug (podem conter dados de notas)
+ultimo_nsu.txt
+*/ultimo_nsu.txt
+lote_debug.json
+*.state.json
+state/
+
+# Pastas de obra local
+neoon/
+pulse/
+max/
+
+# =============================================================
+# PYTHON
+# =============================================================
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# =============================================================
+# OS / EDITOR
+# =============================================================
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+*.swp

@@ -1,0 +1,18 @@
+{
+  "extends": "./node_modules/@microsoft/rush-stack-compiler-4.7/includes/tsconfig-web.json",
+  "compilerOptions": {
+    "target": "es5",
+    "skipLibCheck": true,
+    "types": ["node"],
+    "forceConsistentCasingInFileNames": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "jsx": "react",
+    "declaration": true,
+    "sourceMap": true,
+    "lib": ["es5", "es6", "es2015.iterable", "dom"],
+    "outDir": "lib"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
+}

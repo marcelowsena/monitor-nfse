@@ -1,0 +1,14 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/core-build/config.2.0.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "nfse-pendentes-web-part": {
+      "components": [{
+        "entrypoint": "./lib/webparts/nfsePendentes/NfsePendentesWebPart.js",
+        "manifest": "./src/webparts/nfsePendentes/NfsePendentesWebPart.manifest.json"
+      }]
+    }
+  },
+  "externals": {},
+  "localizedResources": {}
+}

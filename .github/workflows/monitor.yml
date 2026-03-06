@@ -1,0 +1,58 @@
+name: Monitor NFS-e
+
+on:
+  schedule:
+    - cron: '0 * * * *'    # Todo início de hora (UTC)
+  workflow_dispatch:        # Permite rodar manualmente pela aba Actions
+
+jobs:
+  monitor:
+    name: Verificar NFS-e Pendentes
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Decodificar certificados
+        run: |
+          echo "${{ secrets.CERT_MAX_B64 }}" | base64 -d > /tmp/cert_max.pfx
+
+      - name: Executar monitor
+        env:
+          # Certificados
+          CERT_MAX_PATH:   /tmp/cert_max.pfx
+          CERT_MAX_SENHA:  ${{ secrets.CERT_MAX_SENHA }}
+
+          # Cloudflare Worker
+          CF_WORKER_URL:  ${{ secrets.CF_WORKER_URL }}
+          CF_API_TOKEN:   ${{ secrets.CF_API_TOKEN }}
+
+          # Sienge
+          SIENGE_USER: ${{ secrets.SIENGE_USER }}
+          SIENGE_PASS: ${{ secrets.SIENGE_PASS }}
+
+          # Notificações
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+
+          # E-mail (opcional)
+          SMTP_HOST:  ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:  ${{ secrets.SMTP_PORT }}
+          SMTP_USER:  ${{ secrets.SMTP_USER }}
+          SMTP_SENHA: ${{ secrets.SMTP_SENHA }}
+
+        run: python -m monitor.main
+
+      - name: Remover certificados temporários
+        if: always()
+        run: rm -f /tmp/cert_max.pfx

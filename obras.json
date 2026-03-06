@@ -1,0 +1,9 @@
+{
+  "max": {
+    "nome": "HLT Empreendimento Max Colin SPE LTDA (Pulse)",
+    "cnpj": "51643827000154",
+    "cert_env":       "CERT_MAX_PATH",
+    "cert_senha_env": "CERT_MAX_SENHA",
+    "alertar_emails": []
+  }
+}

@@ -1,0 +1,258 @@
+// Monitor NFS-e — Estilos do Web Part
+
+.container {
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 14px;
+  color: #1a1a2e;
+  padding: 0 4px;
+}
+
+// ── Header ──────────────────────────────────
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1F4E79;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.titulo {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.subtitulo {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+// ── Badges ──────────────────────────────────
+
+.badgePendente {
+  display: inline-block;
+  background: #C0392B;
+  color: #fff;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeOk {
+  display: inline-block;
+  background: #27AE60;
+  color: #fff;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+// ── Botão ────────────────────────────────────
+
+.btnAtualizar {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
+}
+
+// ── Cards de Obra ────────────────────────────
+
+.obraCard {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.obraHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #f7f9fc;
+  border-bottom: 1px solid #e8ecf1;
+  gap: 12px;
+}
+
+.obraNome {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1F4E79;
+}
+
+.semPendentes {
+  padding: 14px 16px;
+  color: #27AE60;
+  font-size: 13px;
+}
+
+// ── Tabela ───────────────────────────────────
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  thead tr {
+    background: #7B2C2C;
+    color: #fff;
+
+    th {
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+  }
+
+  tbody {
+    tr {
+      border-bottom: 1px solid #f0f0f0;
+      transition: background 0.1s;
+
+      &:hover td {
+        background: #fef9f9;
+      }
+
+      &:nth-child(even) td {
+        background: #fdf5f5;
+      }
+
+      td {
+        padding: 7px 12px;
+        vertical-align: middle;
+      }
+    }
+  }
+
+  tfoot tr {
+    border-top: 2px solid #ddd;
+    background: #f9f9f9;
+  }
+}
+
+.tabelaLancada {
+  thead tr {
+    background: #1F4E79;
+  }
+
+  tbody tr:nth-child(even) td {
+    background: #f0f4f9;
+  }
+}
+
+.totalLabel {
+  text-align: right;
+  font-weight: 600;
+  padding: 8px 12px;
+  color: #555;
+}
+
+.totalValor {
+  font-weight: 700;
+  color: #7B2C2C;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+// ── Detalhes lançadas ────────────────────────
+
+.lancadasDetails {
+  border-top: 1px solid #e8ecf1;
+}
+
+.lancadasSummary {
+  padding: 10px 16px;
+  cursor: pointer;
+  color: #1F4E79;
+  font-weight: 500;
+  font-size: 13px;
+  background: #f0f4f9;
+  list-style: none;
+
+  &::-webkit-details-marker { display: none; }
+  &::before { content: '▶  '; font-size: 10px; }
+}
+
+details[open] .lancadasSummary::before {
+  content: '▼  ';
+}
+
+// ── Utilitários ──────────────────────────────
+
+.direita {
+  text-align: right !important;
+}
+
+.mono {
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 12px;
+}
+
+// ── Estados ──────────────────────────────────
+
+.loading {
+  padding: 24px;
+  text-align: center;
+  color: #888;
+  font-style: italic;
+}
+
+.erro {
+  padding: 14px 16px;
+  background: #fde8e8;
+  border: 1px solid #f5c6c6;
+  border-radius: 6px;
+  color: #7B2C2C;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.vazio {
+  padding: 24px;
+  text-align: center;
+  color: #27AE60;
+  font-size: 14px;
+}
+
+// ── Rodapé ───────────────────────────────────
+
+.rodape {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 11px;
+  color: #aaa;
+  padding: 8px 0;
+}
