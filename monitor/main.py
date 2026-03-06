@@ -12,8 +12,6 @@ Fluxo por obra:
 import json
 import os
 import sys
-import tempfile
-import base64
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -28,14 +26,6 @@ def _carregar_obras() -> dict:
     caminho = os.path.join(os.path.dirname(__file__), "..", "obras.json")
     with open(caminho, encoding="utf-8") as f:
         return json.load(f)
-
-
-def _cert_para_tempfile(env_var_b64: str) -> str:
-    conteudo = base64.b64decode(os.environ[env_var_b64])
-    fd, caminho = tempfile.mkstemp(suffix=".pfx")
-    with os.fdopen(fd, "wb") as f:
-        f.write(conteudo)
-    return caminho
 
 
 def processar_obra(
@@ -54,27 +44,24 @@ def processar_obra(
     ultimo_nsu   = estado.get("ultimo_nsu", 0)
     pendentes_cf = cf.carregar_pendentes(obra_key)
 
-    # Chaves já conhecidas (evita reprocessar)
     conhecidas = {n["chave"] for n in pendentes_cf}
 
     print(f"  NSU atual        : {ultimo_nsu}")
     print(f"  Pendentes no KV  : {len(pendentes_cf)}")
 
     # ── Etapa 2: consulta SEFAZ ──
-    cert_path  = _cert_para_tempfile(obra["cert_env"])
+    # cert_env aponta para a variável de ambiente com o CAMINHO do .pfx
+    cert_path  = os.environ[obra["cert_env"]]
     cert_senha = os.environ[obra["cert_senha_env"]]
 
-    try:
-        sefaz = SefazClient(cert_path, cert_senha)
-        notas_novas, novo_nsu = sefaz.consultar_novas(ultimo_nsu)
-    finally:
-        os.unlink(cert_path)
+    sefaz = SefazClient(cert_path, cert_senha)
+    notas_novas, novo_nsu = sefaz.consultar_novas(ultimo_nsu)
 
     print(f"  Notas desde NSU {ultimo_nsu}: {len(notas_novas)} | Novo NSU: {novo_nsu}")
 
     # ── Etapa 3: filtra realmente novas ──
     realmente_novas = [n for n in notas_novas if n["chave"] not in conhecidas]
-    print(f"  Novas (não conhecidas): {len(realmente_novas)}")
+    print(f"  Novas (nao conhecidas): {len(realmente_novas)}")
 
     # ── Etapa 4: verifica no Sienge ──
     para_verificar = realmente_novas + pendentes_cf
@@ -82,7 +69,6 @@ def processar_obra(
 
     # ── Etapa 5: classifica ──
     pendentes_novos = [n for n in realmente_novas if n["chave"] not in lancadas]
-    # Atualiza lista: remove as que foram lançadas, adiciona as novas
     pendentes_atualizados = (
         [p for p in pendentes_cf if p["chave"] not in lancadas]
         + [{**n, "obra": obra_key} for n in pendentes_novos]
@@ -91,12 +77,12 @@ def processar_obra(
     recem_lancadas = {p["chave"] for p in pendentes_cf if p["chave"] in lancadas}
 
     print(f"  Pendentes novas   : {len(pendentes_novos)}")
-    print(f"  Recém lançadas    : {len(recem_lancadas)}")
+    print(f"  Recem lancadas    : {len(recem_lancadas)}")
 
     # ── Etapa 6: sincroniza com Cloudflare KV ──
     agora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     cf.sincronizar(obra_key, pendentes_atualizados, novo_nsu, agora)
-    print(f"  ✓ KV atualizado. NSU salvo: {novo_nsu}")
+    print(f"  KV atualizado. NSU salvo: {novo_nsu}")
 
     # ── Etapa 7: notifica ──
     if pendentes_novos:
@@ -111,7 +97,7 @@ def processar_obra(
 
 def main() -> None:
     print("=" * 55)
-    print("  Monitor NFS-e — INVCP")
+    print("  Monitor NFS-e - INVCP")
     print(f"  {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print("=" * 55)
 
@@ -133,7 +119,7 @@ def main() -> None:
         except Exception as e:
             print(f"\n  [ERRO] Obra '{obra_key}': {e}")
 
-    print("\n✓ Monitoramento concluído.")
+    print("\nMonitoramento concluido.")
 
 
 if __name__ == "__main__":
