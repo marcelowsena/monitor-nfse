@@ -139,29 +139,38 @@ for obra_key, xml_dir in XML_DIRS.items():
 
     print(f"  XMLs parseados  : {len(todas_notas)}")
 
-    # 3. Filtra apenas as que NÃO estão já em lancadas_kv
-    #    (pendentes ficam pendentes — não forçamos lançamento delas)
-    candidatas = [n for n in todas_notas if n["chave"] not in chaves_lancadas]
-    print(f"  Candidatas novas: {len(candidatas)}")
+    # 3. Candidatas: novas + já lançadas sem numero_titulo
+    candidatas_novas    = [n for n in todas_notas if n["chave"] not in chaves_lancadas]
+    lancadas_sem_titulo = [n for n in lancadas_kv if not n.get("numero_titulo")]
+    print(f"  Candidatas novas         : {len(candidatas_novas)}")
+    print(f"  Lancadas sem titulo      : {len(lancadas_sem_titulo)}")
 
-    if not candidatas:
+    para_verificar = candidatas_novas + lancadas_sem_titulo
+    if not para_verificar:
         print("  Nada a verificar.")
         continue
 
     # 4. Verifica no Sienge
     print("  Consultando Sienge...")
-    confirmadas = sienge.verificar_lancadas(candidatas)  # dict {chave: numero_titulo}
+    confirmadas = sienge.verificar_lancadas(para_verificar)  # dict {chave: numero_titulo}
     print(f"  Confirmadas pelo Sienge: {len(confirmadas)}")
 
-    # 5. Adiciona à lista de lançadas (sem duplicar, sem remover pendentes)
+    # 5a. Atualiza as já lançadas sem numero_titulo
     mapa_notas = {n["chave"]: n for n in todas_notas}
+    atualizadas = 0
+    for nota in lancadas_kv:
+        if not nota.get("numero_titulo") and nota["chave"] in confirmadas:
+            nota["numero_titulo"] = confirmadas[nota["chave"]]
+            atualizadas += 1
+            print(f"    ~ Nr {nota.get('numero','')} | Titulo {confirmadas[nota['chave']]} | {nota.get('nome_prest','')[:30]}")
+
+    # 5b. Adiciona novas lançadas detectadas
     adicionadas = 0
     for chave, numero_titulo in confirmadas.items():
         if chave not in chaves_lancadas:
             nota = mapa_notas.get(chave)
             if nota:
                 nota = {**nota, "numero_titulo": numero_titulo}
-                # Se estava em pendentes, marca has_pdf igual ao pendente
                 pendente_ref = next((p for p in pendentes_kv if p["chave"] == chave), None)
                 if pendente_ref and pendente_ref.get("has_pdf"):
                     nota["has_pdf"] = True
@@ -170,11 +179,12 @@ for obra_key, xml_dir in XML_DIRS.items():
                 adicionadas += 1
                 print(f"    + Nr {nota.get('numero','')} | Titulo {numero_titulo} | {nota.get('nome_prest','')[:30]}")
 
-    print(f"  Total adicionadas: {adicionadas}")
-    print(f"  Total lancadas KV: {len(lancadas_kv)}")
+    print(f"  Atualizadas com titulo: {atualizadas}")
+    print(f"  Total adicionadas     : {adicionadas}")
+    print(f"  Total lancadas KV     : {len(lancadas_kv)}")
 
-    # 6. Salva no KV (apenas lancadas; pendentes não são alteradas)
-    if adicionadas > 0:
+    # 6. Salva no KV
+    if adicionadas > 0 or atualizadas > 0:
         estado = cf.carregar_estado(obra_key)
         cf.sincronizar(
             obra_key           = obra_key,
