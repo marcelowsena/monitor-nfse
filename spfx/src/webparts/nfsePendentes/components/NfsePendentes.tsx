@@ -329,6 +329,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                 Data Emissao{seta}
               </th>
               <th>Nr NFS-e</th>
+              <th>Titulo Sienge</th>
               <th>Prestador</th>
               <th>CNPJ</th>
               <th className={styles.direita}>Valor (R$)</th>
@@ -340,6 +341,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
               <tr key={nota.chave || i}>
                 <td>{this._formatarData(nota.data_emissao)}</td>
                 <td className={styles.mono}>{nota.numero || '—'}</td>
+                <td className={styles.mono}>{nota.numero_titulo || '—'}</td>
                 <td title={nota.nome_prest || ''}>{nota.nome_prest || '—'}</td>
                 <td className={styles.mono}>{this._formatarCNPJ(nota.cnpj_prest)}</td>
                 <td className={styles.direita}>{this._formatarValor(nota.valor)}</td>
@@ -361,7 +363,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={5} className={styles.totalLabel}>TOTAL LANCADO</td>
+              <td colSpan={6} className={styles.totalLabel}>TOTAL LANCADO</td>
               <td className={`${styles.direita} ${styles.totalValorLancada}`}>
                 {this._formatarValor(totalValor)}
               </td>

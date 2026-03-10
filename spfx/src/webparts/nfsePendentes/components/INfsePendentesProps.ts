@@ -6,14 +6,15 @@ export interface INfsePendentesProps {
 }
 
 export interface INfseItem {
-  chave:        string;
-  obra:         string;
-  numero:       string;
-  data_emissao: string;
-  nome_prest:   string;
-  cnpj_prest:   string;
-  valor:        number;
-  has_pdf?:     boolean;
+  chave:          string;
+  obra:           string;
+  numero:         string;
+  data_emissao:   string;
+  nome_prest:     string;
+  cnpj_prest:     string;
+  valor:          number;
+  has_pdf?:       boolean;
+  numero_titulo?: number;
 }
 
 export interface IObra {

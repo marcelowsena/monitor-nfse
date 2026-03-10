@@ -14,13 +14,14 @@ class SiengeClient:
     def __init__(self, usuario: str, senha: str):
         self.auth = HTTPBasicAuth(usuario, senha)
 
-    def verificar_lancadas(self, notas: list[dict]) -> set[str]:
+    def verificar_lancadas(self, notas: list[dict]) -> dict[str, int]:
         """
         Recebe lista de notas (cada uma com 'chave' e 'cnpj_prest' e 'numero').
-        Retorna set de chaves de notas que JÁ estão lançadas no Sienge.
+        Retorna dict {chave: numero_titulo_sienge} para notas já lançadas.
+        O numero_titulo é o ID interno do título no Sienge.
         """
         if not notas:
-            return set()
+            return {}
 
         # CNPJs únicos dos prestadores
         cnpjs = {_limpar(n.get("cnpj_prest", "")) for n in notas}
@@ -35,28 +36,28 @@ class SiengeClient:
             for cid in ids:
                 titulos.extend(self._titulos_por_credor(cid, cnpj))
 
-        # Monta sets de match
-        chaves_sienge = {_limpar(t["chave"]) for t in titulos if t.get("chave")}
+        # Monta índices de match: chave_limpa → id_titulo e (cnpj, doc) → id_titulo
+        chaves_sienge = {_limpar(t["chave"]): t["id"] for t in titulos if t.get("chave")}
         pares_sienge  = [
-            (_limpar(t["cnpj"]), _normalizar(t["doc"]))
+            (_limpar(t["cnpj"]), _normalizar(t["doc"]), t["id"])
             for t in titulos
             if _limpar(t["cnpj"]) and _normalizar(t["doc"])
         ]
 
         # Verifica cada nota
-        lancadas = set()
+        lancadas: dict[str, int] = {}
         for nota in notas:
             chave_n = _limpar(nota.get("chave", ""))
             cnpj_n  = _limpar(nota.get("cnpj_prest", ""))
             num_n   = _normalizar(nota.get("numero", ""))
 
             if chave_n and chave_n in chaves_sienge:
-                lancadas.add(nota["chave"])
+                lancadas[nota["chave"]] = chaves_sienge[chave_n]
                 continue
 
-            for (cnpj_s, doc_s) in pares_sienge:
+            for (cnpj_s, doc_s, id_s) in pares_sienge:
                 if cnpj_n == cnpj_s and _numeros_batem(num_n, doc_s):
-                    lancadas.add(nota["chave"])
+                    lancadas[nota["chave"]] = id_s
                     break
 
         return lancadas
@@ -113,6 +114,7 @@ class SiengeClient:
                 break
             for item in items:
                 titulos.append({
+                    "id":    item.get("id") or 0,
                     "cnpj":  cnpj,
                     "doc":   item.get("documentNumber") or "",
                     "chave": item.get("accessKeyNumber") or "",

@@ -150,16 +150,17 @@ for obra_key, xml_dir in XML_DIRS.items():
 
     # 4. Verifica no Sienge
     print("  Consultando Sienge...")
-    confirmadas = sienge.verificar_lancadas(candidatas)
+    confirmadas = sienge.verificar_lancadas(candidatas)  # dict {chave: numero_titulo}
     print(f"  Confirmadas pelo Sienge: {len(confirmadas)}")
 
     # 5. Adiciona à lista de lançadas (sem duplicar, sem remover pendentes)
     mapa_notas = {n["chave"]: n for n in todas_notas}
     adicionadas = 0
-    for chave in confirmadas:
+    for chave, numero_titulo in confirmadas.items():
         if chave not in chaves_lancadas:
             nota = mapa_notas.get(chave)
             if nota:
+                nota = {**nota, "numero_titulo": numero_titulo}
                 # Se estava em pendentes, marca has_pdf igual ao pendente
                 pendente_ref = next((p for p in pendentes_kv if p["chave"] == chave), None)
                 if pendente_ref and pendente_ref.get("has_pdf"):
@@ -167,7 +168,7 @@ for obra_key, xml_dir in XML_DIRS.items():
                 lancadas_kv.append(nota)
                 chaves_lancadas.add(chave)
                 adicionadas += 1
-                print(f"    + Nr {nota.get('numero','')} | {nota.get('nome_prest','')[:30]}")
+                print(f"    + Nr {nota.get('numero','')} | Titulo {numero_titulo} | {nota.get('nome_prest','')[:30]}")
 
     print(f"  Total adicionadas: {adicionadas}")
     print(f"  Total lancadas KV: {len(lancadas_kv)}")

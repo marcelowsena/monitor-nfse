@@ -91,7 +91,8 @@ def processar_obra(
     # Acumula as recém-lançadas no histórico do KV
     for p in pendentes_cf:
         if p["chave"] in lancadas and p["chave"] not in chaves_lancadas_kv:
-            lancadas_kv.append(p)
+            nota_lancada = {**p, "numero_titulo": lancadas[p["chave"]]}
+            lancadas_kv.append(nota_lancada)
             chaves_lancadas_kv.add(p["chave"])
 
     print(f"  Pendentes novas   : {len(pendentes_novos)}")
