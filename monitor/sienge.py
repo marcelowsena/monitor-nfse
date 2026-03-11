@@ -1,5 +1,5 @@
 """
-Cliente Sienge — verifica quais NFS-e já foram lançadas como títulos.
+Cliente Sienge — verifica quais NFS-e / NF-e já foram lançadas como títulos.
 Usa creditorId como filtro para evitar buscar a base inteira.
 """
 
@@ -16,51 +16,52 @@ class SiengeClient:
 
     def verificar_lancadas(self, notas: list[dict]) -> dict[str, int]:
         """
-        Recebe lista de notas (cada uma com 'chave' e 'cnpj_prest' e 'numero').
-        Retorna dict {chave: numero_titulo_sienge} para notas já lançadas.
-        O numero_titulo é o ID interno do título no Sienge.
+        Recebe lista de notas NFS-e. Retorna {chave: id_titulo} para as já lançadas.
         """
         if not notas:
             return {}
-
-        # CNPJs únicos dos prestadores
         cnpjs = {_limpar(n.get("cnpj_prest", "")) for n in notas}
         cnpjs.discard("")
+        mapa_cnpj = self._credores_por_cnpj(cnpjs)
+        titulos = self._buscar_titulos(mapa_cnpj, "NFSE")
+        return self._match(notas, titulos)
 
-        # Mapeia CNPJ → [creditorId]
+    def verificar_lancadas_nfe(self, notas: list[dict]) -> dict[str, int]:
+        """
+        Igual a verificar_lancadas mas busca títulos com documentIdentificationId=NFE.
+        """
+        if not notas:
+            return {}
+        cnpjs = {_limpar(n.get("cnpj_prest", "")) for n in notas}
+        cnpjs.discard("")
+        mapa_cnpj = self._credores_por_cnpj(cnpjs)
+        titulos = self._buscar_titulos(mapa_cnpj, "NFE")
+        return self._match(notas, titulos)
+
+    def verificar_lancadas_ambas(
+        self,
+        notas_nfse: list[dict],
+        notas_nfe:  list[dict],
+    ) -> tuple[dict[str, int], dict[str, int]]:
+        """
+        Verifica NFS-e e NF-e em uma única passagem pelo /creditors.
+        Retorna (lancadas_nfse, lancadas_nfe).
+        Reduz pela metade as chamadas ao Sienge quando ambas têm notas.
+        """
+        todas = notas_nfse + notas_nfe
+        if not todas:
+            return {}, {}
+
+        cnpjs = {_limpar(n.get("cnpj_prest", "")) for n in todas}
+        cnpjs.discard("")
+
+        # Uma única paginação de credores para todos os CNPJs
         mapa_cnpj = self._credores_por_cnpj(cnpjs)
 
-        # Busca títulos NFS-e de cada credor
-        titulos = []
-        for cnpj, ids in mapa_cnpj.items():
-            for cid in ids:
-                titulos.extend(self._titulos_por_credor(cid, cnpj))
+        titulos_nfse = self._buscar_titulos(mapa_cnpj, "NFSE") if notas_nfse else []
+        titulos_nfe  = self._buscar_titulos(mapa_cnpj, "NFE")  if notas_nfe  else []
 
-        # Monta índices de match: chave_limpa → id_titulo e (cnpj, doc) → id_titulo
-        chaves_sienge = {_limpar(t["chave"]): t["id"] for t in titulos if t.get("chave")}
-        pares_sienge  = [
-            (_limpar(t["cnpj"]), _normalizar(t["doc"]), t["id"])
-            for t in titulos
-            if _limpar(t["cnpj"]) and _normalizar(t["doc"])
-        ]
-
-        # Verifica cada nota
-        lancadas: dict[str, int] = {}
-        for nota in notas:
-            chave_n = _limpar(nota.get("chave", ""))
-            cnpj_n  = _limpar(nota.get("cnpj_prest", ""))
-            num_n   = _normalizar(nota.get("numero", ""))
-
-            if chave_n and chave_n in chaves_sienge:
-                lancadas[nota["chave"]] = chaves_sienge[chave_n]
-                continue
-
-            for (cnpj_s, doc_s, id_s) in pares_sienge:
-                if cnpj_n == cnpj_s and _numeros_batem(num_n, doc_s):
-                    lancadas[nota["chave"]] = id_s
-                    break
-
-        return lancadas
+        return self._match(notas_nfse, titulos_nfse), self._match(notas_nfe, titulos_nfe)
 
     # ──────────────────────────────────────────
     # Internos
@@ -89,49 +90,15 @@ class SiengeClient:
             offset += 200
         return mapa
 
-    def verificar_lancadas_nfe(self, notas: list[dict]) -> dict[str, int]:
-        """
-        Igual a verificar_lancadas mas busca títulos com documentIdentificationId=NFE.
-        """
-        if not notas:
-            return {}
-
-        cnpjs = {_limpar(n.get("cnpj_prest", "")) for n in notas}
-        cnpjs.discard("")
-
-        mapa_cnpj = self._credores_por_cnpj(cnpjs)
-
+    def _buscar_titulos(self, mapa_cnpj: dict, doc_id: str) -> list[dict]:
+        """Busca todos os títulos de cada credor para o tipo de documento dado."""
         titulos = []
         for cnpj, ids in mapa_cnpj.items():
             for cid in ids:
-                titulos.extend(self._titulos_por_credor(cid, cnpj, doc_id="NFE"))
+                titulos.extend(self._titulos_por_credor(cid, cnpj, doc_id))
+        return titulos
 
-        chaves_sienge = {_limpar(t["chave"]): t["id"] for t in titulos if t.get("chave")}
-        pares_sienge  = [
-            (_limpar(t["cnpj"]), _normalizar(t["doc"]), t["id"])
-            for t in titulos
-            if _limpar(t["cnpj"]) and _normalizar(t["doc"])
-        ]
-
-        lancadas: dict[str, int] = {}
-        for nota in notas:
-            chave_n = _limpar(nota.get("chave", ""))
-            cnpj_n  = _limpar(nota.get("cnpj_prest", ""))
-            num_n   = _normalizar(nota.get("numero", ""))
-
-            if chave_n and chave_n in chaves_sienge:
-                lancadas[nota["chave"]] = chaves_sienge[chave_n]
-                continue
-
-            for (cnpj_s, doc_s, id_s) in pares_sienge:
-                if cnpj_n == cnpj_s and _numeros_batem(num_n, doc_s):
-                    lancadas[nota["chave"]] = id_s
-                    break
-
-        return lancadas
-
-    def _titulos_por_credor(self, credor_id: int, cnpj: str, doc_id: str = "NFSE") -> list[dict]:
-        """Busca todos os títulos de um credor para o tipo de documento dado."""
+    def _titulos_por_credor(self, credor_id: int, cnpj: str, doc_id: str) -> list[dict]:
         titulos = []
         offset = 0
         while True:
@@ -162,6 +129,34 @@ class SiengeClient:
                 })
             offset += 200
         return titulos
+
+    def _match(self, notas: list[dict], titulos: list[dict]) -> dict[str, int]:
+        """Monta índice de títulos e verifica cada nota."""
+        if not notas:
+            return {}
+        chaves_sienge = {_limpar(t["chave"]): t["id"] for t in titulos if t.get("chave")}
+        pares_sienge  = [
+            (_limpar(t["cnpj"]), _normalizar(t["doc"]), t["id"])
+            for t in titulos
+            if _limpar(t["cnpj"]) and _normalizar(t["doc"])
+        ]
+
+        lancadas: dict[str, int] = {}
+        for nota in notas:
+            chave_n = _limpar(nota.get("chave", ""))
+            cnpj_n  = _limpar(nota.get("cnpj_prest", ""))
+            num_n   = _normalizar(nota.get("numero", ""))
+
+            if chave_n and chave_n in chaves_sienge:
+                lancadas[nota["chave"]] = chaves_sienge[chave_n]
+                continue
+
+            for (cnpj_s, doc_s, id_s) in pares_sienge:
+                if cnpj_n == cnpj_s and _numeros_batem(num_n, doc_s):
+                    lancadas[nota["chave"]] = id_s
+                    break
+
+        return lancadas
 
 
 # ──────────────────────────────────────────────────
