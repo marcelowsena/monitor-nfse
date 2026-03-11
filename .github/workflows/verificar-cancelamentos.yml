@@ -1,0 +1,178 @@
+name: Verificar Cancelamentos no KV
+
+on:
+  workflow_dispatch:
+    inputs:
+      remover_automaticamente:
+        description: 'Remover as canceladas automaticamente? (true/false)'
+        required: true
+        default: 'false'
+  schedule:
+    - cron: '0 8 * * 1'  # Toda segunda-feira às 8h UTC (5h Brasília)
+
+jobs:
+  verificar:
+    name: Verificar cancelamentos/substituições
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Decodificar certificado
+        run: echo "${{ secrets.CERT_MAX_B64 }}" | base64 -d > /tmp/cert_max.pfx
+
+      - name: Verificar cancelamentos
+        env:
+          CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
+          CF_API_TOKEN:  ${{ secrets.CF_API_TOKEN }}
+          CERT_PATH:     /tmp/cert_max.pfx
+          CERT_SENHA:    ${{ secrets.CERT_MAX_SENHA }}
+          REMOVER:       ${{ inputs.remover_automaticamente || 'false' }}
+        run: |
+          python - <<'EOF'
+          import os, sys, base64, gzip, time, json
+          import xml.etree.ElementTree as ET
+          sys.path.insert(0, "monitor")
+          import requests
+          from requests_pkcs12 import Pkcs12Adapter
+          from cloudflare import CloudflareClient
+
+          API_BASE = "https://adn.nfse.gov.br"
+          NS = {"nfse": "http://www.sped.fazenda.gov.br/nfse"}
+          TIMEOUT = 90   # segundos — maior para compensar latência do GitHub Actions
+          MAX_RETRY = 5
+
+          cf = CloudflareClient(os.environ["CF_WORKER_URL"], os.environ["CF_API_TOKEN"])
+          pendentes = cf.carregar_pendentes("max")
+          lancadas  = cf.carregar_lancadas("max")
+          estado    = cf.carregar_estado("max")
+          nsu_atual = estado.get("ultimo_nsu", 0)
+
+          if not pendentes:
+              print("Nenhuma nota pendente. Nada a verificar.")
+              sys.exit(0)
+
+          chaves_pendentes = {n["chave"]: n for n in pendentes}
+          print(f"Verificando {len(chaves_pendentes)} notas pendentes (NSU 0 a {nsu_atual})...")
+          print()
+
+          session = requests.Session()
+          session.mount(API_BASE, Pkcs12Adapter(
+              pkcs12_filename=os.environ["CERT_PATH"],
+              pkcs12_password=os.environ["CERT_SENHA"],
+          ))
+          session.headers.update({"Content-Type": "application/json", "Accept": "application/json"})
+
+          canceladas = {}
+          nsu = 0
+          lotes = 0
+
+          while True:
+              for tentativa in range(1, MAX_RETRY + 1):
+                  try:
+                      resp = session.get(f"{API_BASE}/contribuintes/DFe/{nsu}", timeout=TIMEOUT)
+                      break
+                  except requests.exceptions.Timeout:
+                      print(f"  Timeout no NSU {nsu} (tentativa {tentativa}/{MAX_RETRY}), aguardando 15s...")
+                      time.sleep(15)
+              else:
+                  print(f"  NSU {nsu} falhou após {MAX_RETRY} tentativas. Encerrando.")
+                  break
+
+              if resp.status_code == 204:
+                  break
+              if resp.status_code == 429:
+                  print(f"  Rate limit no NSU {nsu}, aguardando 30s...")
+                  time.sleep(30)
+                  continue
+              if resp.status_code not in (200, 404):
+                  print(f"  Erro HTTP {resp.status_code} no NSU {nsu}")
+                  break
+
+              dados = resp.json()
+              if dados.get("StatusProcessamento") == "NENHUM_DOCUMENTO_LOCALIZADO":
+                  break
+
+              lote = dados.get("LoteDFe") or []
+              lotes += 1
+
+              for item in lote:
+                  chave   = item.get("ChaveAcesso", "")
+                  xml_b64 = item.get("ArquivoXml", "")
+                  if not xml_b64:
+                      continue
+                  try:
+                      raw = base64.b64decode(xml_b64)
+                      if raw[:2] == b"\x1f\x8b":
+                          raw = gzip.decompress(raw)
+                      root = ET.fromstring(raw)
+                  except Exception:
+                      continue
+
+                  if root.tag.split("}")[-1] != "evento":
+                      continue
+
+                  inf_evt = root.find("nfse:infEvento", NS)
+                  if inf_evt is None:
+                      continue
+                  ped = inf_evt.find("nfse:pedRegEvento/nfse:infPedReg", NS)
+                  if ped is None:
+                      continue
+
+                  for cod, label in [("e101101", "CANCELADA"), ("e101106", "SUBSTITUIDA")]:
+                      no_evt = ped.find(f"nfse:{cod}", NS)
+                      if no_evt is None:
+                          continue
+                      el = no_evt.find("nfse:chNFSe", NS) or ped.find("nfse:chNFSe", NS)
+                      chave_canc = (el.text or "").strip() if el is not None else chave
+                      motivo_el  = no_evt.find("nfse:xMotivo", NS)
+                      motivo     = (motivo_el.text or "").strip() if motivo_el is not None else ""
+                      if chave_canc in chaves_pendentes:
+                          canceladas[chave_canc] = (label, motivo)
+
+              nsus = [i["NSU"] for i in lote if "NSU" in i]
+              if not nsus or max(nsus) <= nsu:
+                  break
+              nsu = max(nsus)
+              time.sleep(1)
+
+          print(f"Escaneados {lotes} lotes. NSU final: {nsu}")
+          print()
+
+          if canceladas:
+              print(f"{'='*55}")
+              print(f"NOTAS CANCELADAS/SUBSTITUÍDAS NO KV ({len(canceladas)}):")
+              for chave, (status, motivo) in canceladas.items():
+                  n = chaves_pendentes[chave]
+                  print(f"  [{status}] Nr {n.get('numero')} — {n.get('nome_prest')}")
+                  if motivo:
+                      print(f"           Motivo: {motivo}")
+              print(f"{'='*55}")
+
+              if os.environ.get("REMOVER") == "true":
+                  print("\nRemovendo automaticamente...")
+                  from datetime import datetime, timezone
+                  pendentes_novos = [p for p in pendentes if p["chave"] not in canceladas]
+                  agora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                  cf.sincronizar("max", pendentes_novos, nsu_atual, agora, lancadas=lancadas)
+                  print(f"KV atualizado: {len(pendentes)} -> {len(pendentes_novos)} pendentes.")
+              else:
+                  print("\nPara remover, rode novamente com 'remover_automaticamente = true'.")
+          else:
+              print("Nenhuma cancelamento/substituição encontrado. Todas as notas pendentes estão válidas.")
+          EOF
+
+      - name: Remover certificado
+        if: always()
+        run: rm -f /tmp/cert_max.pfx
