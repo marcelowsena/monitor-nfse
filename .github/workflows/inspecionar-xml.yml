@@ -1,0 +1,127 @@
+name: Inspecionar XML da Nota no SEFAZ
+
+on:
+  workflow_dispatch:
+    inputs:
+      obra_key:
+        description: 'Chave da obra (ex: max)'
+        required: true
+        default: 'max'
+      chave_acesso:
+        description: 'Chave de acesso da NFS-e (44 dígitos)'
+        required: true
+      nsu_inicial:
+        description: 'NSU a partir de onde buscar (0 = começo do histórico)'
+        required: true
+        default: '0'
+      janela:
+        description: 'Quantos lotes escanear no máximo'
+        required: true
+        default: '200'
+
+jobs:
+  inspecionar:
+    name: Inspecionar XML ${{ inputs.chave_acesso }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Decodificar certificado
+        run: echo "${{ secrets.CERT_MAX_B64 }}" | base64 -d > /tmp/cert_max.pfx
+
+      - name: Inspecionar XML no SEFAZ
+        env:
+          CERT_PATH:  /tmp/cert_max.pfx
+          CERT_SENHA: ${{ secrets.CERT_MAX_SENHA }}
+        run: |
+          python - <<'EOF'
+          import os, sys, base64, gzip, time, xml.etree.ElementTree as ET
+          sys.path.insert(0, "monitor")
+          import requests
+          from requests_pkcs12 import Pkcs12Adapter
+
+          API_BASE = "https://adn.nfse.gov.br"
+          chave_alvo = "${{ inputs.chave_acesso }}".strip()
+          nsu        = int("${{ inputs.nsu_inicial }}")
+          janela     = int("${{ inputs.janela }}")
+
+          session = requests.Session()
+          session.mount(API_BASE, Pkcs12Adapter(
+              pkcs12_filename=os.environ["CERT_PATH"],
+              pkcs12_password=os.environ["CERT_SENHA"],
+          ))
+          session.headers.update({"Content-Type": "application/json", "Accept": "application/json"})
+
+          print(f"Buscando chave : {chave_alvo}")
+          print(f"A partir do NSU: {nsu} | janela: {janela} lotes")
+          print()
+
+          encontrado = False
+          lotes_vistos = 0
+
+          while lotes_vistos < janela:
+              resp = session.get(f"{API_BASE}/contribuintes/DFe/{nsu}", timeout=30)
+              if resp.status_code == 204:
+                  print("Sem mais documentos (204).")
+                  break
+              if resp.status_code == 429:
+                  time.sleep(30)
+                  continue
+              if resp.status_code not in (200, 404):
+                  print(f"Erro HTTP {resp.status_code}")
+                  break
+
+              dados = resp.json()
+              if dados.get("StatusProcessamento") == "NENHUM_DOCUMENTO_LOCALIZADO":
+                  print("Sem documentos nesse NSU.")
+                  break
+
+              lote = dados.get("LoteDFe") or []
+              lotes_vistos += 1
+
+              for item in lote:
+                  if item.get("ChaveAcesso") == chave_alvo:
+                      print(f"Encontrado no NSU {item.get('NSU')}!")
+                      xml_b64 = item.get("ArquivoXml", "")
+                      raw = base64.b64decode(xml_b64)
+                      if raw[:2] == b"\x1f\x8b":
+                          raw = gzip.decompress(raw)
+                      root = ET.fromstring(raw)
+                      ET.indent(root)
+                      print(ET.tostring(root, encoding="unicode"))
+                      encontrado = True
+                      break
+
+              if encontrado:
+                  break
+
+              nsus = [i["NSU"] for i in lote if "NSU" in i]
+              if not nsus:
+                  break
+              proximo = max(nsus)
+              if proximo <= nsu:
+                  break
+              nsu = proximo
+              time.sleep(2)
+
+          if not encontrado:
+              print(f"Chave não encontrada nos {lotes_vistos} lotes consultados.")
+              print(f"Último NSU consultado: {nsu}")
+              print("Tente aumentar a janela ou ajustar o NSU inicial.")
+          EOF
+
+      - name: Remover certificado
+        if: always()
+        run: rm -f /tmp/cert_max.pfx
