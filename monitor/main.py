@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 
 from sefaz       import SefazClient
+from nfe         import NFeClient
 from sienge      import SiengeClient
 from cloudflare  import CloudflareClient
 from notificacao import enviar_teams, enviar_email
@@ -114,12 +115,60 @@ def processar_obra(
         except Exception as e:
             print(f"    Erro ao salvar PDF {chave[:20]}...: {e}")
 
-    # ── Etapa 7: sincroniza com Cloudflare KV ──
+    # ── Etapa 7: NF-e (material) — somente se obra configurada ──────
+    pendentes_nfe_atualizados = None
+    lancadas_nfe_kv           = None
+    novo_nsu_nfe              = None
+
+    if obra.get("nfe_cuf"):
+        print(f"\n  [NF-e] Consultando notas de material...")
+        nfe_nsu          = estado.get("ultimo_nsu_nfe", 0)
+        pendentes_nfe_cf = cf.carregar_pendentes_nfe(obra_key)
+        lancadas_nfe_kv  = cf.carregar_lancadas_nfe(obra_key)
+
+        cert_path_nfe  = os.environ[obra.get("nfe_cert_env",      obra["cert_env"])]
+        cert_senha_nfe = os.environ[obra.get("nfe_cert_senha_env", obra["cert_senha_env"])]
+
+        nfe_client = NFeClient(cert_path_nfe, cert_senha_nfe, obra["cnpj"], obra["nfe_cuf"])
+        notas_nfe, cancelamentos_nfe, novo_nsu_nfe = nfe_client.consultar_novas(nfe_nsu)
+
+        chaves_canc_nfe = {c["chave"] for c in cancelamentos_nfe}
+        if chaves_canc_nfe:
+            pendentes_nfe_cf = [p for p in pendentes_nfe_cf if p["chave"] not in chaves_canc_nfe]
+
+        conhecidas_nfe     = {n["chave"] for n in pendentes_nfe_cf}
+        chaves_lanc_nfe    = {n["chave"] for n in lancadas_nfe_kv}
+        realmente_novas_nfe = [n for n in notas_nfe
+                               if n["chave"] not in conhecidas_nfe
+                               and n["chave"] not in chaves_lanc_nfe]
+
+        para_ver_nfe  = realmente_novas_nfe + pendentes_nfe_cf
+        lancadas_nfe  = sienge.verificar_lancadas_nfe(para_ver_nfe) if para_ver_nfe else {}
+
+        pendentes_nfe_atualizados = (
+            [p for p in pendentes_nfe_cf if p["chave"] not in lancadas_nfe]
+            + [{**n, "obra": obra_key} for n in realmente_novas_nfe if n["chave"] not in lancadas_nfe]
+        )
+
+        for p in pendentes_nfe_cf:
+            if p["chave"] in lancadas_nfe and p["chave"] not in chaves_lanc_nfe:
+                lancadas_nfe_kv.append({**p, "numero_titulo": lancadas_nfe[p["chave"]]})
+                chaves_lanc_nfe.add(p["chave"])
+
+        print(f"  [NF-e] Novas: {len(realmente_novas_nfe)} | Pendentes: {len(pendentes_nfe_atualizados)} | NSU: {novo_nsu_nfe}")
+
+    # ── Etapa 8: sincroniza com Cloudflare KV ──
     agora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    cf.sincronizar(obra_key, pendentes_atualizados, novo_nsu, agora, lancadas=lancadas_kv)
+    cf.sincronizar(
+        obra_key, pendentes_atualizados, novo_nsu, agora,
+        lancadas=lancadas_kv,
+        pendentes_nfe=pendentes_nfe_atualizados,
+        lancadas_nfe=lancadas_nfe_kv,
+        ultimo_nsu_nfe=novo_nsu_nfe,
+    )
     print(f"  KV atualizado. NSU salvo: {novo_nsu}")
 
-    # ── Etapa 8: notifica ──
+    # ── Etapa 9: notifica ──
     if pendentes_novos:
         webhook = os.environ.get("TEAMS_WEBHOOK_URL", "")
         if webhook:

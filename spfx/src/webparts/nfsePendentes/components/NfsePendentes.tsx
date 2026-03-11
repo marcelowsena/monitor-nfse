@@ -2,7 +2,8 @@ import * as React from 'react';
 import { INfsePendentesProps, IObra } from './INfsePendentesProps';
 import styles from './NfsePendentes.module.scss';
 
-type SortDir = 'asc' | 'desc';
+type SortDir   = 'asc' | 'desc';
+type SortField = 'data_emissao' | 'valor';
 type Aba = 'pendentes' | 'lancadas';
 
 interface IState {
@@ -11,6 +12,7 @@ interface IState {
   erro:       string;
   ultimaAtt:  string;
   filtro:     string;
+  sortField:  SortField;
   sortDir:    SortDir;
   abaAtiva:   Aba;
 }
@@ -19,7 +21,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
 
   constructor(props: INfsePendentesProps) {
     super(props);
-    this.state = { obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '', sortDir: 'asc', abaAtiva: 'pendentes' };
+    this.state = { obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '', sortField: 'data_emissao', sortDir: 'desc', abaAtiva: 'pendentes' };
   }
 
   public componentDidMount(): void {
@@ -86,12 +88,15 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     return parseFloat(s) || 0;
   }
 
-  private _toggleSort(): void {
-    this.setState(s => ({ sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' }));
+  private _toggleSort(field: SortField): void {
+    this.setState(s => ({
+      sortField: field,
+      sortDir: s.sortField === field && s.sortDir === 'asc' ? 'desc' : 'asc',
+    }));
   }
 
   public render(): React.ReactElement {
-    const { carregando, erro, obras, ultimaAtt, filtro, sortDir, abaAtiva } = this.state;
+    const { carregando, erro, obras, ultimaAtt, filtro, sortField, sortDir, abaAtiva } = this.state;
 
     const totalPendentes = obras.reduce((s, o) => s + o.pendentes.length, 0);
     const totalLancadas  = obras.reduce((s, o) => s + (o.lancadas || []).length, 0);
@@ -177,8 +182,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
           <div className={styles.vazio}>Nenhuma nota lancada registrada ainda.</div>
         )}
 
-        {!carregando && abaAtiva === 'pendentes' && obras.map(obra => this._renderObra(obra, filtro, sortDir))}
-        {!carregando && abaAtiva === 'lancadas'  && obras.map(obra => this._renderObraLancadas(obra, filtro, sortDir))}
+        {!carregando && abaAtiva === 'pendentes' && obras.map(obra => this._renderObra(obra, filtro, sortField, sortDir))}
+        {!carregando && abaAtiva === 'lancadas'  && obras.map(obra => this._renderObraLancadas(obra, filtro, sortField, sortDir))}
 
         {ultimaAtt && (
           <div className={styles.rodape}>
@@ -189,23 +194,26 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     );
   }
 
-  private _renderObra(obra: IObra, filtro: string, sortDir: SortDir): React.ReactElement {
+  private _renderObra(obra: IObra, filtro: string, sortField: SortField, sortDir: SortDir): React.ReactElement {
     const termo = filtro.toLowerCase();
 
     let pendentes = obra.pendentes.filter(n => {
       if (!termo) return true;
+      const tipoLabel = n.tipo === 'nfe' ? 'material' : 'servico';
       return (
         this._formatarData(n.data_emissao).includes(termo) ||
         (n.numero || '').toLowerCase().includes(termo) ||
         (n.nome_prest || '').toLowerCase().includes(termo) ||
         this._formatarCNPJ(n.cnpj_prest).includes(termo) ||
-        this._formatarValor(n.valor).includes(termo)
+        this._formatarValor(n.valor).includes(termo) ||
+        tipoLabel.includes(termo)
       );
     });
 
-    // Ordena por data de emissão
     pendentes = [...pendentes].sort((a, b) => {
-      const cmp = (a.data_emissao || '').localeCompare(b.data_emissao || '');
+      const cmp = sortField === 'valor'
+        ? a.valor - b.valor
+        : (a.data_emissao || '').localeCompare(b.data_emissao || '');
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
@@ -215,7 +223,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     }
 
     const totalValor = pendentes.reduce((s, n) => s + n.valor, 0);
-    const seta = sortDir === 'asc' ? ' ▲' : ' ▼';
+    const setaData  = sortField === 'data_emissao' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅';
+    const setaValor = sortField === 'valor'        ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅';
 
     return (
       <div key={obra.key} className={styles.obraCard}>
@@ -233,15 +242,22 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
               <tr>
                 <th
                   className={styles.thSortable}
-                  onClick={() => this._toggleSort()}
-                  title="Clique para ordenar"
+                  onClick={() => this._toggleSort('data_emissao')}
+                  title="Clique para ordenar por data"
                 >
-                  Data Emissao{seta}
+                  Data Emissao{setaData}
                 </th>
-                <th>Nr NFS-e</th>
+                <th>Nr</th>
                 <th>Prestador</th>
                 <th>CNPJ</th>
-                <th className={styles.direita}>Valor (R$)</th>
+                <th>Tipo</th>
+                <th
+                  className={`${styles.direita} ${styles.thSortable}`}
+                  onClick={() => this._toggleSort('valor')}
+                  title="Clique para ordenar por valor"
+                >
+                  Valor (R$){setaValor}
+                </th>
                 <th style={{width: '60px'}}></th>
               </tr>
             </thead>
@@ -252,6 +268,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                   <td className={styles.mono}>{nota.numero || '—'}</td>
                   <td title={nota.nome_prest || ''}>{nota.nome_prest || '—'}</td>
                   <td className={styles.mono}>{this._formatarCNPJ(nota.cnpj_prest)}</td>
+                  <td>{nota.tipo === 'nfe' ? 'Material' : 'Servico'}</td>
                   <td className={styles.direita}>{this._formatarValor(nota.valor)}</td>
                   <td className={styles.tdPdf}>
                     {nota.has_pdf && (
@@ -271,7 +288,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
             </tbody>
             <tfoot>
               <tr>
-                <td colSpan={5} className={styles.totalLabel}>TOTAL PENDENTE</td>
+                <td colSpan={6} className={styles.totalLabel}>TOTAL PENDENTE</td>
                 <td className={`${styles.direita} ${styles.totalValor}`}>
                   {this._formatarValor(totalValor)}
                 </td>
@@ -289,28 +306,33 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     );
   }
 
-  private _renderObraLancadas(obra: IObra, filtro: string, sortDir: SortDir): React.ReactElement {
+  private _renderObraLancadas(obra: IObra, filtro: string, sortField: SortField, sortDir: SortDir): React.ReactElement {
     const termo = filtro.toLowerCase();
     let lancadas = (obra.lancadas || []).filter(n => {
       if (!termo) return true;
+      const tipoLabel = n.tipo === 'nfe' ? 'material' : 'servico';
       return (
         this._formatarData(n.data_emissao).includes(termo) ||
         (n.numero || '').toLowerCase().includes(termo) ||
         (n.nome_prest || '').toLowerCase().includes(termo) ||
         this._formatarCNPJ(n.cnpj_prest).includes(termo) ||
-        this._formatarValor(n.valor).includes(termo)
+        this._formatarValor(n.valor).includes(termo) ||
+        tipoLabel.includes(termo)
       );
     });
 
     lancadas = [...lancadas].sort((a, b) => {
-      const cmp = (a.data_emissao || '').localeCompare(b.data_emissao || '');
+      const cmp = sortField === 'valor'
+        ? a.valor - b.valor
+        : (a.data_emissao || '').localeCompare(b.data_emissao || '');
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
     if (lancadas.length === 0) return <div key={obra.key} />;
 
     const totalValor = lancadas.reduce((s, n) => s + n.valor, 0);
-    const seta = sortDir === 'asc' ? ' ▲' : ' ▼';
+    const setaData  = sortField === 'data_emissao' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅';
+    const setaValor = sortField === 'valor'        ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ' ⇅';
 
     return (
       <div key={obra.key} className={styles.obraCard}>
@@ -323,16 +345,23 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
             <tr>
               <th
                 className={styles.thSortable}
-                onClick={() => this._toggleSort()}
-                title="Clique para ordenar"
+                onClick={() => this._toggleSort('data_emissao')}
+                title="Clique para ordenar por data"
               >
-                Data Emissao{seta}
+                Data Emissao{setaData}
               </th>
-              <th>Nr NFS-e</th>
+              <th>Nr</th>
               <th>Titulo Sienge</th>
               <th>Prestador</th>
               <th>CNPJ</th>
-              <th className={styles.direita}>Valor (R$)</th>
+              <th>Tipo</th>
+              <th
+                className={`${styles.direita} ${styles.thSortable}`}
+                onClick={() => this._toggleSort('valor')}
+                title="Clique para ordenar por valor"
+              >
+                Valor (R$){setaValor}
+              </th>
               <th style={{width: '60px'}}></th>
             </tr>
           </thead>
@@ -344,6 +373,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                 <td className={styles.mono}>{nota.numero_titulo || '—'}</td>
                 <td title={nota.nome_prest || ''}>{nota.nome_prest || '—'}</td>
                 <td className={styles.mono}>{this._formatarCNPJ(nota.cnpj_prest)}</td>
+                <td>{nota.tipo === 'nfe' ? 'Material' : 'Servico'}</td>
                 <td className={styles.direita}>{this._formatarValor(nota.valor)}</td>
                 <td className={styles.tdPdf}>
                   {nota.has_pdf && (
@@ -363,7 +393,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan={6} className={styles.totalLabel}>TOTAL LANCADO</td>
+              <td colSpan={7} className={styles.totalLabel}>TOTAL LANCADO</td>
               <td className={`${styles.direita} ${styles.totalValorLancada}`}>
                 {this._formatarValor(totalValor)}
               </td>

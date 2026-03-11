@@ -89,8 +89,49 @@ class SiengeClient:
             offset += 200
         return mapa
 
-    def _titulos_por_credor(self, credor_id: int, cnpj: str) -> list[dict]:
-        """Busca todos os títulos NFS-e de um credor."""
+    def verificar_lancadas_nfe(self, notas: list[dict]) -> dict[str, int]:
+        """
+        Igual a verificar_lancadas mas busca títulos com documentIdentificationId=NFE.
+        """
+        if not notas:
+            return {}
+
+        cnpjs = {_limpar(n.get("cnpj_prest", "")) for n in notas}
+        cnpjs.discard("")
+
+        mapa_cnpj = self._credores_por_cnpj(cnpjs)
+
+        titulos = []
+        for cnpj, ids in mapa_cnpj.items():
+            for cid in ids:
+                titulos.extend(self._titulos_por_credor(cid, cnpj, doc_id="NFE"))
+
+        chaves_sienge = {_limpar(t["chave"]): t["id"] for t in titulos if t.get("chave")}
+        pares_sienge  = [
+            (_limpar(t["cnpj"]), _normalizar(t["doc"]), t["id"])
+            for t in titulos
+            if _limpar(t["cnpj"]) and _normalizar(t["doc"])
+        ]
+
+        lancadas: dict[str, int] = {}
+        for nota in notas:
+            chave_n = _limpar(nota.get("chave", ""))
+            cnpj_n  = _limpar(nota.get("cnpj_prest", ""))
+            num_n   = _normalizar(nota.get("numero", ""))
+
+            if chave_n and chave_n in chaves_sienge:
+                lancadas[nota["chave"]] = chaves_sienge[chave_n]
+                continue
+
+            for (cnpj_s, doc_s, id_s) in pares_sienge:
+                if cnpj_n == cnpj_s and _numeros_batem(num_n, doc_s):
+                    lancadas[nota["chave"]] = id_s
+                    break
+
+        return lancadas
+
+    def _titulos_por_credor(self, credor_id: int, cnpj: str, doc_id: str = "NFSE") -> list[dict]:
+        """Busca todos os títulos de um credor para o tipo de documento dado."""
         titulos = []
         offset = 0
         while True:
@@ -101,7 +142,7 @@ class SiengeClient:
                 params={
                     "startDate":                "2022-01-01",
                     "endDate":                  "2030-12-31",
-                    "documentIdentificationId": "NFSE",
+                    "documentIdentificationId": doc_id,
                     "creditorId":               credor_id,
                     "limit":                    200,
                     "offset":                   offset,

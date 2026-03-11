@@ -15,6 +15,7 @@ export interface INfseItem {
   valor:          number;
   has_pdf?:       boolean;
   numero_titulo?: number;
+  tipo?:          'nfse' | 'nfe';
 }
 
 export interface IObra {

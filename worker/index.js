@@ -2,8 +2,12 @@
  * Monitor NFS-e — Cloudflare Worker
  *
  * KV keys (binding: KV):
- *   {obra}:pendentes           → JSON array de notas pendentes
- *   {obra}:ultimo_nsu          → string com o último NSU processado
+ *   {obra}:pendentes           → JSON array de notas NFS-e pendentes
+ *   {obra}:lancadas            → JSON array de notas NFS-e lançadas
+ *   {obra}:pendentes_nfe       → JSON array de NF-e (material) pendentes
+ *   {obra}:lancadas_nfe        → JSON array de NF-e (material) lançadas
+ *   {obra}:ultimo_nsu          → string com o último NSU NFS-e processado
+ *   {obra}:ultimo_nsu_nfe      → string com o último NSU NF-e processado
  *   {obra}:ultima_verificacao  → string ISO da última verificação
  *   pdf:{chave}                → PDF bytes (ArrayBuffer)
  *
@@ -56,17 +60,23 @@ export default {
     if (url.pathname.startsWith('/api/estado/') && request.method === 'GET') {
       if (!checkToken()) return json({ error: 'Unauthorized' }, 401);
       const obra = url.pathname.split('/')[3];
-      const [nsu, verif] = await Promise.all([
+      const [nsu, verif, nsuNfe] = await Promise.all([
         env.KV.get(`${obra}:ultimo_nsu`, 'text'),
         env.KV.get(`${obra}:ultima_verificacao`, 'text'),
+        env.KV.get(`${obra}:ultimo_nsu_nfe`, 'text'),
       ]);
-      return json({ ultimo_nsu: parseInt(nsu || '0', 10), ultima_verificacao: verif || '' });
+      return json({
+        ultimo_nsu:         parseInt(nsu    || '0', 10),
+        ultima_verificacao: verif || '',
+        ultimo_nsu_nfe:     parseInt(nsuNfe || '0', 10),
+      });
     }
 
     // ── POST /api/sync  (Bearer) ────────────────────────────────────
     if (url.pathname === '/api/sync' && request.method === 'POST') {
       if (!checkBearer()) return json({ error: 'Unauthorized' }, 401);
-      const { obra, pendentes, lancadas, ultimo_nsu, ultima_verificacao } = await request.json();
+      const { obra, pendentes, lancadas, ultimo_nsu, ultima_verificacao,
+              pendentes_nfe, lancadas_nfe, ultimo_nsu_nfe } = await request.json();
       if (!obra) return json({ error: 'Campo "obra" obrigatorio' }, 400);
 
       await Promise.all([
@@ -81,6 +91,15 @@ export default {
           : Promise.resolve(),
         ultima_verificacao !== undefined
           ? env.KV.put(`${obra}:ultima_verificacao`, ultima_verificacao)
+          : Promise.resolve(),
+        pendentes_nfe !== undefined
+          ? env.KV.put(`${obra}:pendentes_nfe`, JSON.stringify(pendentes_nfe))
+          : Promise.resolve(),
+        lancadas_nfe !== undefined
+          ? env.KV.put(`${obra}:lancadas_nfe`, JSON.stringify(lancadas_nfe))
+          : Promise.resolve(),
+        ultimo_nsu_nfe !== undefined
+          ? env.KV.put(`${obra}:ultimo_nsu_nfe`, String(ultimo_nsu_nfe))
           : Promise.resolve(),
       ]);
 
@@ -218,16 +237,25 @@ function renderObra(o) {
 }
 
 async function carregarObra(obra, env) {
-  const [pendentes, lancadas, nsu, verif] = await Promise.all([
+  const [pendentes, lancadas, nsu, verif, pendentesNfe, lancadasNfe] = await Promise.all([
     env.KV.get(`${obra.key}:pendentes`, 'json'),
     env.KV.get(`${obra.key}:lancadas`, 'json'),
     env.KV.get(`${obra.key}:ultimo_nsu`, 'text'),
     env.KV.get(`${obra.key}:ultima_verificacao`, 'text'),
+    env.KV.get(`${obra.key}:pendentes_nfe`, 'json'),
+    env.KV.get(`${obra.key}:lancadas_nfe`, 'json'),
   ]);
+
+  // Garante tipo='nfse' nas notas de serviço e tipo='nfe' nas de material
+  const pend    = (pendentes    || []).map(n => n.tipo ? n : { ...n, tipo: 'nfse' });
+  const lanc    = (lancadas     || []).map(n => n.tipo ? n : { ...n, tipo: 'nfse' });
+  const pendNfe = (pendentesNfe || []).map(n => ({ ...n, tipo: 'nfe' }));
+  const lancNfe = (lancadasNfe  || []).map(n => ({ ...n, tipo: 'nfe' }));
+
   return {
     key: obra.key, nome: obra.nome,
-    pendentes: pendentes || [],
-    lancadas: lancadas || [],
+    pendentes: [...pend, ...pendNfe],
+    lancadas:  [...lanc, ...lancNfe],
     ultimo_nsu: nsu || '0',
     ultima_verificacao: verif || '—',
   };

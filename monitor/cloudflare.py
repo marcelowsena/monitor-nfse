@@ -50,6 +50,20 @@ class CloudflareClient:
                 return item.get("lancadas", [])
         return []
 
+    def carregar_pendentes_nfe(self, obra_key: str) -> list:
+        """Retorna lista de NF-e pendentes desta obra."""
+        for item in self._carregar_obras_raw():
+            if item.get("key") == obra_key:
+                return item.get("pendentes_nfe", [])
+        return []
+
+    def carregar_lancadas_nfe(self, obra_key: str) -> list:
+        """Retorna lista de NF-e já lançadas no Sienge desta obra."""
+        for item in self._carregar_obras_raw():
+            if item.get("key") == obra_key:
+                return item.get("lancadas_nfe", [])
+        return []
+
     def pdf_existe(self, chave: str) -> bool:
         """Verifica se o PDF já está armazenado no Worker (HEAD request)."""
         try:
@@ -86,6 +100,9 @@ class CloudflareClient:
         ultimo_nsu: int,
         ultima_verificacao: str,
         lancadas: list | None = None,
+        pendentes_nfe: list | None = None,
+        lancadas_nfe: list | None = None,
+        ultimo_nsu_nfe: int | None = None,
     ) -> None:
         """Atualiza pendentes + lancadas + estado no KV via POST /api/sync."""
         payload = {
@@ -96,6 +113,12 @@ class CloudflareClient:
         }
         if lancadas is not None:
             payload["lancadas"] = lancadas
+        if pendentes_nfe is not None:
+            payload["pendentes_nfe"] = pendentes_nfe
+        if lancadas_nfe is not None:
+            payload["lancadas_nfe"] = lancadas_nfe
+        if ultimo_nsu_nfe is not None:
+            payload["ultimo_nsu_nfe"] = ultimo_nsu_nfe
         r = requests.post(
             f"{self._url}/api/sync",
             json=payload,
