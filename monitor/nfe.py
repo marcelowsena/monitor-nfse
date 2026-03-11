@@ -22,8 +22,9 @@ DELAY_RETRY_429   = 30
 DELAY_ENTRE_LOTES = 3
 
 # cStat da resposta
-CSTAT_SEM_DOC = "137"
-CSTAT_COM_DOC = "138"
+CSTAT_SEM_DOC       = "137"   # Nenhum documento localizado (mas ultNSU ainda é atualizado)
+CSTAT_COM_DOC       = "138"   # Documento localizado
+CSTAT_CONS_INDEVIDO = "656"   # Consumo indevido — SEFAZ pede para usar ultNSU e aguardar 1h
 
 
 class NFeClient:
@@ -54,9 +55,17 @@ class NFeClient:
             if dados is None:
                 break
 
-            cstat = dados.get("cStat", "")
+            cstat   = dados.get("cStat", "")
+            ult_nsu = int(dados.get("ultNSU", "0") or "0")
+
             if cstat == CSTAT_SEM_DOC:
-                print(f"    [NF-e] Sem documentos a partir do NSU {nsu}.")
+                nsu = max(nsu, ult_nsu)
+                print(f"    [NF-e] Sem novos documentos. ultNSU={nsu}.")
+                break
+
+            if cstat == CSTAT_CONS_INDEVIDO:
+                nsu = max(nsu, ult_nsu)
+                print(f"    [NF-e] Rate limit (656) — aguarde ~1h. ultNSU={nsu} salvo.")
                 break
 
             docs = dados.get("docs", [])
@@ -85,9 +94,8 @@ class NFeClient:
                     if resultado:
                         notas.append(resultado)
 
-            ult_nsu = dados.get("ultNSU", "0")
             try:
-                proximo = int(ult_nsu)
+                proximo = int(dados.get("ultNSU", "0") or "0")
             except ValueError:
                 break
 
