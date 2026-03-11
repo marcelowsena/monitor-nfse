@@ -2,7 +2,7 @@ name: Monitor NFS-e
 
 on:
   schedule:
-    - cron: '30 12,17,18,19,20,21 * * 1-5'  # Seg-sex: 09:30/14:30/15:30/16:30/17:30/18:30 (Brasília)
+    - cron: '0 3,8 * * 1-5'  # Seg-sex: 00:00 e 05:00 (Brasília = UTC-3)
   workflow_dispatch:        # Permite rodar manualmente pela aba Actions
 
 jobs:
