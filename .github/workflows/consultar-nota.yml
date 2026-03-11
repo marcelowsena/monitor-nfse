@@ -1,0 +1,77 @@
+name: Consultar Nota no KV
+
+on:
+  workflow_dispatch:
+    inputs:
+      obra_key:
+        description: 'Chave da obra (ex: max)'
+        required: true
+        default: 'max'
+      numero_nfse:
+        description: 'Número da NFS-e a consultar (ex: 64)'
+        required: true
+
+jobs:
+  consultar:
+    name: Consultar nota ${{ inputs.numero_nfse }} da obra ${{ inputs.obra_key }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Consultar nota no KV
+        env:
+          CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
+          CF_API_TOKEN:  ${{ secrets.CF_API_TOKEN }}
+        run: |
+          python - <<'EOF'
+          import os, sys
+          sys.path.insert(0, "monitor")
+          from cloudflare import CloudflareClient
+
+          cf = CloudflareClient(os.environ["CF_WORKER_URL"], os.environ["CF_API_TOKEN"])
+          obra_key   = "${{ inputs.obra_key }}"
+          numero     = "${{ inputs.numero_nfse }}"
+
+          pendentes = cf.carregar_pendentes(obra_key)
+          lancadas  = cf.carregar_lancadas(obra_key)
+
+          achou = False
+          for n in pendentes:
+              if n.get("numero") == numero:
+                  print(f"STATUS: PENDENTE")
+                  print(f"  Nr NFS-e    : {n.get('numero')}")
+                  print(f"  Prestador   : {n.get('nome_prest')}")
+                  print(f"  CNPJ        : {n.get('cnpj_prest')}")
+                  print(f"  Emissão     : {n.get('data_emissao')}")
+                  print(f"  Valor       : {n.get('valor')}")
+                  print(f"  Chave       : {n.get('chave')}")
+                  print(f"  Tem PDF     : {n.get('has_pdf', False)}")
+                  achou = True
+
+          for n in lancadas:
+              if n.get("numero") == numero:
+                  print(f"STATUS: LANCADA NO SIENGE")
+                  print(f"  Nr NFS-e    : {n.get('numero')}")
+                  print(f"  Titulo      : {n.get('numero_titulo')}")
+                  print(f"  Prestador   : {n.get('nome_prest')}")
+                  print(f"  CNPJ        : {n.get('cnpj_prest')}")
+                  print(f"  Emissão     : {n.get('data_emissao')}")
+                  print(f"  Valor       : {n.get('valor')}")
+                  print(f"  Chave       : {n.get('chave')}")
+                  achou = True
+
+          if not achou:
+              print(f"Nota '{numero}' NÃO encontrada nos pendentes nem nas lançadas da obra '{obra_key}'.")
+          EOF
