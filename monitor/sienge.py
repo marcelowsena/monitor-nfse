@@ -68,26 +68,27 @@ class SiengeClient:
     # ──────────────────────────────────────────
 
     def _credores_por_cnpj(self, cnpjs: set) -> dict:
-        """Pagina /creditors e retorna {cnpj: [ids]}."""
+        """Busca credores por CNPJ usando o filtro da API (uma chamada por CNPJ)."""
         mapa = {c: [] for c in cnpjs}
-        offset = 0
-        while True:
-            r = requests.get(
-                f"{SIENGE_BASE}/creditors",
-                auth=self.auth,
-                timeout=30,
-                params={"limit": 200, "offset": offset},
-            )
-            if r.status_code != 200:
-                break
-            items = r.json().get("results", [])
-            if not items:
-                break
-            for c in items:
-                cnpj = _limpar(c.get("cnpj") or c.get("cpf") or "")
-                if cnpj in mapa:
+        for cnpj in cnpjs:
+            offset = 0
+            while True:
+                r = requests.get(
+                    f"{SIENGE_BASE}/creditors",
+                    auth=self.auth,
+                    timeout=30,
+                    params={"cnpj": cnpj, "limit": 200, "offset": offset},
+                )
+                if r.status_code != 200:
+                    break
+                items = r.json().get("results", [])
+                if not items:
+                    break
+                for c in items:
                     mapa[cnpj].append(c["id"])
-            offset += 200
+                if len(items) < 200:
+                    break
+                offset += 200
         return mapa
 
     def _buscar_titulos(self, mapa_cnpj: dict, doc_id: str) -> list[dict]:
