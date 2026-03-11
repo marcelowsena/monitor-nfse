@@ -1,0 +1,108 @@
+name: Diagnóstico NF-e DistDFeInt
+
+on:
+  workflow_dispatch:
+    inputs:
+      obra_key:
+        description: 'Chave da obra (ex: max)'
+        required: true
+        default: 'max'
+
+jobs:
+  diagnostico:
+    name: Diagnóstico NF-e ${{ inputs.obra_key }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Decodificar certificado
+        run: echo "${{ secrets.CERT_MAX_B64 }}" | base64 -d > /tmp/cert_max.pfx
+
+      - name: Diagnóstico DistDFeInt
+        env:
+          CERT_PATH:  /tmp/cert_max.pfx
+          CERT_SENHA: ${{ secrets.CERT_MAX_SENHA }}
+        run: |
+          python - <<'EOF'
+          import os, sys, json
+          sys.path.insert(0, "monitor")
+          import requests
+          from requests_pkcs12 import Pkcs12Adapter
+
+          WSDL_URL    = "https://www1.nfe.fazenda.gov.br/NFeDistribuicaoDFe/NFeDistribuicaoDFe.asmx"
+          SOAP_ACTION = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse"
+          NS_NFE      = "http://www.portalfiscal.inf.br/nfe"
+          NS_WSDL     = "http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe"
+          CNPJ        = "51643827000154"
+          CUF         = "42"
+
+          session = requests.Session()
+          session.mount(
+              "https://www1.nfe.fazenda.gov.br",
+              Pkcs12Adapter(
+                  pkcs12_filename=os.environ["CERT_PATH"],
+                  pkcs12_password=os.environ["CERT_SENHA"],
+              ),
+          )
+          session.headers.update({
+              "Content-Type": f'application/soap+xml; charset=utf-8; action="{SOAP_ACTION}"',
+          })
+
+          envelope = f"""<?xml version="1.0" encoding="utf-8"?>
+          <soap12:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                           xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+                           xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
+            <soap12:Header>
+              <nfeCabecMsg xmlns="{NS_WSDL}">
+                <cUF>{CUF}</cUF>
+                <versaoDados>1.01</versaoDados>
+              </nfeCabecMsg>
+            </soap12:Header>
+            <soap12:Body>
+              <nfeDistDFeInteresse xmlns="{NS_WSDL}">
+                <nfeDadosMsg>
+                  <distDFeInt versao="1.01" xmlns="{NS_NFE}">
+                    <tpAmb>1</tpAmb>
+                    <cUFAutor>{CUF}</cUFAutor>
+                    <CNPJ>{CNPJ}</CNPJ>
+                    <distNSU>
+                      <ultNSU>000000000000000</ultNSU>
+                    </distNSU>
+                  </distDFeInt>
+                </nfeDadosMsg>
+              </nfeDistDFeInteresse>
+            </soap12:Body>
+          </soap12:Envelope>"""
+
+          print(f"Consultando DistDFeInt...")
+          print(f"  CNPJ    : {CNPJ}")
+          print(f"  cUF     : {CUF}")
+          print(f"  URL     : {WSDL_URL}")
+          print()
+
+          try:
+              resp = session.post(WSDL_URL, data=envelope.encode("utf-8"), timeout=90)
+              print(f"HTTP status : {resp.status_code}")
+              print(f"Content-Type: {resp.headers.get('Content-Type','')}")
+              print()
+              print("=== RESPOSTA SOAP (primeiros 3000 chars) ===")
+              print(resp.text[:3000])
+          except Exception as e:
+              print(f"ERRO: {e}")
+          EOF
+
+      - name: Remover certificado
+        if: always()
+        run: rm -f /tmp/cert_max.pfx
