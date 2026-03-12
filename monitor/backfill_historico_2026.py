@@ -66,7 +66,14 @@ def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: Sien
     if chaves_canceladas:
         antes = len(todas_notas)
         todas_notas = [n for n in todas_notas if n["chave"] not in chaves_canceladas]
-        print(f"  Cancelamentos removidos: {antes - len(todas_notas)}")
+        print(f"  Cancelamentos removidos de notas novas: {antes - len(todas_notas)}")
+
+        # Remove tambem canceladas que ja estejam nos pendentes do KV
+        pendentes_cancelados = [p for p in pendentes_kv if p["chave"] in chaves_canceladas]
+        for p in pendentes_cancelados:
+            print(f"  [CANCELADA] Removendo de pendentes KV: nr={p.get('numero','')} ({p['chave'][:25]}...)")
+        pendentes_kv = [p for p in pendentes_kv if p["chave"] not in chaves_canceladas]
+        chaves_pendentes = {n["chave"] for n in pendentes_kv}
 
     # 4. Filtra para 2026
     notas_2026 = [n for n in todas_notas if (n.get("data_emissao") or "") >= CORTE_ANO]

@@ -77,8 +77,14 @@ def processar_obra(
             pendentes_cf = [p for p in pendentes_cf if p["chave"] not in chaves_canceladas]
             conhecidas   = {n["chave"] for n in pendentes_cf}
 
-        realmente_novas = [n for n in notas_novas if n["chave"] not in conhecidas]
-        print(f"  Novas (nao conhecidas): {len(realmente_novas)}")
+        realmente_novas = [n for n in notas_novas
+                           if n["chave"] not in conhecidas
+                           and n["chave"] not in chaves_canceladas]
+        if chaves_canceladas:
+            canceladas_em_novas = [n for n in notas_novas if n["chave"] in chaves_canceladas]
+            for n in canceladas_em_novas:
+                print(f"  [CANCELADA] Ignorando nova nota {n.get('numero','')} ({n['chave'][:25]}...)")
+        print(f"  Novas (nao conhecidas, nao canceladas): {len(realmente_novas)}")
 
     # ── Etapa 4: consulta SEFAZ NF-e (apenas quando tipo=nfe) ──
     pendentes_nfe_atualizados = None
