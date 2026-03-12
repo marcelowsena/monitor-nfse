@@ -21,8 +21,11 @@
  */
 
 const OBRAS = [
-  { key: "max", nome: "Pulse — HLT Max Colin SPE" },
-  // Adicionar outras obras aqui quando necessário
+  { key: "max",                 nome: "Pulse — HLT Max Colin SPE" },
+  { key: "arium",               nome: "Arium — HPB CDA 4" },
+  { key: "confraria_benjamin",  nome: "Confraria Benjamin — HLT 11" },
+  { key: "cora",                nome: "Cora — Benjamin Constant" },
+  { key: "nola",                nome: "Nola — HPB CDA 3" },
 ];
 
 export default {
