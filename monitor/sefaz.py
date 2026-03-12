@@ -140,13 +140,20 @@ class SefazClient:
             if inf_evt is not None:
                 ped = inf_evt.find("nfse:pedRegEvento/nfse:infPedReg", NS)
                 if ped is not None:
-                    for cod_evt, label in [("e101101", "Cancelamento"), ("e101106", "Substituicao")]:
+                    for cod_evt, label in [
+                        ("e101101", "Cancelamento"),
+                        ("e101102", "CancelamentoPorSubstituicao"),
+                        ("e101106", "Substituicao"),
+                    ]:
                         no_evt = ped.find(f"nfse:{cod_evt}", NS)
                         if no_evt is None:
                             continue
                         # chave da nota cancelada/substituída pode estar no evento ou no nó pai
                         el = no_evt.find("nfse:chNFSe", NS) or ped.find("nfse:chNFSe", NS)
                         chave_canc = (el.text or "").strip() if el is not None else chave
+                        # e101102: evento na nota ORIGINAL — usar a própria chave do evento
+                        if cod_evt == "e101102" and not chave_canc:
+                            chave_canc = chave
                         motivo_el = no_evt.find("nfse:xMotivo", NS)
                         motivo = (motivo_el.text or "").strip() if motivo_el is not None else ""
                         print(f"    [{label}] Removendo nota {chave_canc[:25]}... | {motivo}")
