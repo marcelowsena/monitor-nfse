@@ -6,5 +6,37 @@
     "cert_senha_env": "CERT_MAX_SENHA",
     "alertar_emails": [],
     "nfe_cuf":        "42"
+  },
+  "arium": {
+    "nome": "HPB CDA 4 Empreendimentos Imobiliarios SPE LTDA (Arium)",
+    "cnpj": "51585542000104",
+    "cert_env":       "CERT_ARIUM_PATH",
+    "cert_senha_env": "CERT_ARIUM_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42"
+  },
+  "confraria_benjamin": {
+    "nome": "HLT Empreendimento 11 SPE LTDA (Confraria Benjamin)",
+    "cnpj": "55856494000100",
+    "cert_env":       "CERT_CONFRARIA_BENJAMIN_PATH",
+    "cert_senha_env": "CERT_CONFRARIA_BENJAMIN_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42"
+  },
+  "cora": {
+    "nome": "Empreendimento Rua Benjamin Constant SPE LTDA (Cora)",
+    "cnpj": "50829210000165",
+    "cert_env":       "CERT_CORA_PATH",
+    "cert_senha_env": "CERT_CORA_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42"
+  },
+  "nola": {
+    "nome": "HPB CDA 3 Empreendimentos Imobiliarios SPE LTDA (Nola)",
+    "cnpj": "51582834000193",
+    "cert_env":       "CERT_NOLA_PATH",
+    "cert_senha_env": "CERT_NOLA_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42"
   }
 }

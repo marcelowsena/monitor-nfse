@@ -26,13 +26,25 @@ jobs:
 
       - name: Decodificar certificados
         run: |
-          echo "${{ secrets.CERT_MAX_B64 }}" | base64 -d > /tmp/cert_max.pfx
+          echo "${{ secrets.CERT_MAX_B64 }}"                | base64 -d > /tmp/cert_max.pfx
+          echo "${{ secrets.CERT_ARIUM_B64 }}"              | base64 -d > /tmp/cert_arium.pfx
+          echo "${{ secrets.CERT_CONFRARIA_BENJAMIN_B64 }}" | base64 -d > /tmp/cert_confraria_benjamin.pfx
+          echo "${{ secrets.CERT_CORA_B64 }}"               | base64 -d > /tmp/cert_cora.pfx
+          echo "${{ secrets.CERT_NOLA_B64 }}"               | base64 -d > /tmp/cert_nola.pfx
 
       - name: Executar monitor NF-e
         env:
           # Certificados
-          CERT_MAX_PATH:   /tmp/cert_max.pfx
-          CERT_MAX_SENHA:  ${{ secrets.CERT_MAX_SENHA }}
+          CERT_MAX_PATH:                /tmp/cert_max.pfx
+          CERT_MAX_SENHA:               ${{ secrets.CERT_MAX_SENHA }}
+          CERT_ARIUM_PATH:              /tmp/cert_arium.pfx
+          CERT_ARIUM_SENHA:             ${{ secrets.CERT_ARIUM_SENHA }}
+          CERT_CONFRARIA_BENJAMIN_PATH: /tmp/cert_confraria_benjamin.pfx
+          CERT_CONFRARIA_BENJAMIN_SENHA: ${{ secrets.CERT_CONFRARIA_BENJAMIN_SENHA }}
+          CERT_CORA_PATH:               /tmp/cert_cora.pfx
+          CERT_CORA_SENHA:              ${{ secrets.CERT_CORA_SENHA }}
+          CERT_NOLA_PATH:               /tmp/cert_nola.pfx
+          CERT_NOLA_SENHA:              ${{ secrets.CERT_NOLA_SENHA }}
 
           # Cloudflare Worker
           CF_WORKER_URL:  ${{ secrets.CF_WORKER_URL }}
@@ -55,4 +67,4 @@ jobs:
 
       - name: Remover certificados temporários
         if: always()
-        run: rm -f /tmp/cert_max.pfx
+        run: rm -f /tmp/cert_max.pfx /tmp/cert_arium.pfx /tmp/cert_confraria_benjamin.pfx /tmp/cert_cora.pfx /tmp/cert_nola.pfx
