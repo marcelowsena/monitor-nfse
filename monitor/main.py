@@ -9,6 +9,7 @@ Fluxo por obra:
   4. Atualiza KV via Worker + notifica Teams
 """
 
+import argparse
 import json
 import os
 import sys
@@ -35,6 +36,7 @@ def processar_obra(
     obra: dict,
     cf: CloudflareClient,
     sienge: SiengeClient,
+    tipo: str = "nfse",
 ) -> None:
     print(f"\n{'─'*55}")
     print(f"  Obra : {obra['nome']}")
@@ -53,36 +55,38 @@ def processar_obra(
     print(f"  NSU atual        : {ultimo_nsu}")
     print(f"  Pendentes no KV  : {len(pendentes_cf)}")
 
-    # ── Etapa 2: consulta SEFAZ ──
-    # cert_env aponta para a variável de ambiente com o CAMINHO do .pfx
     cert_path  = os.environ[obra["cert_env"]]
     cert_senha = os.environ[obra["cert_senha_env"]]
 
-    sefaz = SefazClient(cert_path, cert_senha)
-    notas_novas, cancelamentos, novo_nsu = sefaz.consultar_novas(ultimo_nsu)
-    notas_novas = preencher_nomes(notas_novas)
+    # ── Etapa 2: consulta SEFAZ NFS-e (apenas quando tipo=nfse) ──
+    realmente_novas = []
+    novo_nsu        = ultimo_nsu
 
-    print(f"  Notas desde NSU {ultimo_nsu}: {len(notas_novas)} | Novo NSU: {novo_nsu}")
+    if tipo == "nfse":
+        sefaz = SefazClient(cert_path, cert_senha)
+        notas_novas, cancelamentos, novo_nsu = sefaz.consultar_novas(ultimo_nsu)
+        notas_novas = preencher_nomes(notas_novas)
+        print(f"  Notas desde NSU {ultimo_nsu}: {len(notas_novas)} | Novo NSU: {novo_nsu}")
 
-    # ── Etapa 3: aplica cancelamentos e filtra novas ──
-    chaves_canceladas = {c["chave"] for c in cancelamentos}
-    if chaves_canceladas:
-        removidas = [p for p in pendentes_cf if p["chave"] in chaves_canceladas]
-        for r in removidas:
-            print(f"  [CANCELADA] Removendo nota {r.get('numero','')} ({r['chave'][:25]}...)")
-        pendentes_cf = [p for p in pendentes_cf if p["chave"] not in chaves_canceladas]
-        conhecidas   = {n["chave"] for n in pendentes_cf}
+        # ── Etapa 3: aplica cancelamentos e filtra novas ──
+        chaves_canceladas = {c["chave"] for c in cancelamentos}
+        if chaves_canceladas:
+            removidas = [p for p in pendentes_cf if p["chave"] in chaves_canceladas]
+            for r in removidas:
+                print(f"  [CANCELADA] Removendo nota {r.get('numero','')} ({r['chave'][:25]}...)")
+            pendentes_cf = [p for p in pendentes_cf if p["chave"] not in chaves_canceladas]
+            conhecidas   = {n["chave"] for n in pendentes_cf}
 
-    realmente_novas = [n for n in notas_novas if n["chave"] not in conhecidas]
-    print(f"  Novas (nao conhecidas): {len(realmente_novas)}")
+        realmente_novas = [n for n in notas_novas if n["chave"] not in conhecidas]
+        print(f"  Novas (nao conhecidas): {len(realmente_novas)}")
 
-    # ── Etapa 4: prepara NF-e (se configurado) para verificação combinada ──
+    # ── Etapa 4: consulta SEFAZ NF-e (apenas quando tipo=nfe) ──
     pendentes_nfe_atualizados = None
     lancadas_nfe_kv           = None
     novo_nsu_nfe              = None
     para_ver_nfe              = []
 
-    if obra.get("nfe_cuf"):
+    if tipo == "nfe" and obra.get("nfe_cuf"):
         print(f"\n  [NF-e] Consultando notas de material...")
         nfe_nsu          = estado.get("ultimo_nsu_nfe", 0)
         pendentes_nfe_cf = cf.carregar_pendentes_nfe(obra_key)
@@ -148,20 +152,21 @@ def processar_obra(
                 chaves_lanc_nfe.add(p["chave"])
         print(f"  [NF-e] Pendentes: {len(pendentes_nfe_atualizados)} | NSU: {novo_nsu_nfe}")
 
-    # ── Etapa 7: baixa PDFs (novas + pendentes antigas sem PDF) ──
-    sem_pdf = [n for n in pendentes_atualizados if not n.get("has_pdf")]
-    if sem_pdf:
-        print(f"  Baixando PDFs faltantes: {len(sem_pdf)}")
-    for nota in sem_pdf:
-        chave = nota["chave"]
-        try:
-            pdf = sefaz.baixar_pdf(chave)
-            if pdf:
-                cf.salvar_pdf(chave, pdf)
-                nota["has_pdf"] = True
-                print(f"    PDF salvo: {chave[:20]}...")
-        except Exception as e:
-            print(f"    Erro ao salvar PDF {chave[:20]}...: {e}")
+    # ── Etapa 7: baixa PDFs (apenas NFS-e) ──
+    if tipo == "nfse":
+        sem_pdf = [n for n in pendentes_atualizados if not n.get("has_pdf")]
+        if sem_pdf:
+            print(f"  Baixando PDFs faltantes: {len(sem_pdf)}")
+        for nota in sem_pdf:
+            chave = nota["chave"]
+            try:
+                pdf = sefaz.baixar_pdf(chave)
+                if pdf:
+                    cf.salvar_pdf(chave, pdf)
+                    nota["has_pdf"] = True
+                    print(f"    PDF salvo: {chave[:20]}...")
+            except Exception as e:
+                print(f"    Erro ao salvar PDF {chave[:20]}...: {e}")
 
     # ── Etapa 8: sincroniza com Cloudflare KV ──
     agora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -186,8 +191,18 @@ def processar_obra(
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--tipo",
+        choices=["nfse", "nfe"],
+        default="nfse",
+        help="Tipo de nota a monitorar: nfse (serviço) ou nfe (material)",
+    )
+    args = parser.parse_args()
+
+    label = "NFS-e (serviço)" if args.tipo == "nfse" else "NF-e (material)"
     print("=" * 55)
-    print("  Monitor NFS-e - INVCP")
+    print(f"  Monitor {label} - INVCP")
     print(f"  {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print("=" * 55)
 
@@ -205,7 +220,7 @@ def main() -> None:
 
     for obra_key, obra in obras.items():
         try:
-            processar_obra(obra_key, obra, cf, sienge)
+            processar_obra(obra_key, obra, cf, sienge, tipo=args.tipo)
         except Exception as e:
             print(f"\n  [ERRO] Obra '{obra_key}': {e}")
 

@@ -1,13 +1,13 @@
-name: Monitor NFS-e
+name: Monitor NF-e
 
 on:
   schedule:
-    - cron: '0 10-21 * * 1-5'  # Seg-sex, 07h-18h Brasília (UTC-3), a cada hora
-  workflow_dispatch:        # Permite rodar manualmente pela aba Actions
+    - cron: '0 3,8 * * 1-5'  # Seg-sex: 00:00 e 05:00 Brasília (UTC-3)
+  workflow_dispatch:          # Permite rodar manualmente pela aba Actions
 
 jobs:
   monitor:
-    name: Verificar NFS-e Pendentes
+    name: Verificar NF-e (Material) Pendentes
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -28,7 +28,7 @@ jobs:
         run: |
           echo "${{ secrets.CERT_MAX_B64 }}" | base64 -d > /tmp/cert_max.pfx
 
-      - name: Executar monitor
+      - name: Executar monitor NF-e
         env:
           # Certificados
           CERT_MAX_PATH:   /tmp/cert_max.pfx
@@ -51,7 +51,7 @@ jobs:
           SMTP_USER:  ${{ secrets.SMTP_USER }}
           SMTP_SENHA: ${{ secrets.SMTP_SENHA }}
 
-        run: python -m monitor.main --tipo nfse
+        run: python -m monitor.main --tipo nfe
 
       - name: Remover certificados temporários
         if: always()
