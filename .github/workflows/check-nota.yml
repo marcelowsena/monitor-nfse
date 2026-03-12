@@ -1,0 +1,70 @@
+name: Check Nota
+
+on:
+  workflow_dispatch:
+    inputs:
+      obra_key:
+        description: 'Chave da obra (ex: cora)'
+        required: true
+        default: 'cora'
+      numero:
+        description: 'Numero da nota'
+        required: false
+        default: ''
+      cnpj:
+        description: 'CNPJ do prestador (so digitos)'
+        required: false
+        default: ''
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Consultar nota no KV
+        env:
+          CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
+          CF_API_TOKEN:  ${{ secrets.CF_API_TOKEN }}
+        run: |
+          python3 - << 'PYEOF'
+          import os, json, requests
+
+          url   = os.environ['CF_WORKER_URL'].rstrip('/') + '/api/pendentes'
+          token = os.environ['CF_API_TOKEN']
+          data  = requests.get(url, params={'token': token}, timeout=30).json()
+
+          obra_key  = "${{ github.event.inputs.obra_key }}"
+          nr_busca  = "${{ github.event.inputs.numero }}"
+          cnpj_busca = "${{ github.event.inputs.cnpj }}".replace('.','').replace('/','').replace('-','')
+
+          obra = next((o for o in data if o['key'] == obra_key), None)
+          if not obra:
+              print(f"Obra '{obra_key}' nao encontrada no KV")
+              exit(0)
+
+          print(f"Obra: {obra_key}")
+          print(f"Pendentes: {len(obra.get('pendentes',[]))} | Lancadas: {len(obra.get('lancadas',[]))}")
+          print()
+
+          found = False
+          for lista, label in [(obra.get('pendentes',[]), 'PENDENTE'), (obra.get('lancadas',[]), 'LANCADA')]:
+              for n in lista:
+                  cnpj_n = (n.get('cnpj_prest','') or '').replace('.','').replace('/','').replace('-','')
+                  nr_match   = nr_busca   and str(n.get('numero','')) == nr_busca
+                  cnpj_match = cnpj_busca and cnpj_n == cnpj_busca
+                  if nr_match or cnpj_match:
+                      print(f"[{label}]")
+                      for k, v in n.items():
+                          print(f"  {k}: {v}")
+                      print()
+                      found = True
+
+          if not found:
+              print("Nao encontrada nos criterios informados.")
+          PYEOF
