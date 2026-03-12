@@ -27,44 +27,34 @@ jobs:
           python-version: '3.11'
           cache: pip
       - run: pip install -r requirements.txt
-      - name: Consultar nota no KV
-        env:
-          CF_WORKER_URL: ${{ secrets.CF_WORKER_URL }}
-          CF_API_TOKEN:  ${{ secrets.CF_API_TOKEN }}
+
+      - name: Decodificar certificados
         run: |
-          python3 - << 'PYEOF'
-          import os, json, requests
+          echo "${{ secrets.CERT_MAX_B64 }}"                | base64 -d > /tmp/cert_max.pfx
+          echo "${{ secrets.CERT_ARIUM_B64 }}"              | base64 -d > /tmp/cert_arium.pfx
+          echo "${{ secrets.CERT_CONFRARIA_BENJAMIN_B64 }}" | base64 -d > /tmp/cert_confraria_benjamin.pfx
+          echo "${{ secrets.CERT_CORA_B64 }}"               | base64 -d > /tmp/cert_cora.pfx
+          echo "${{ secrets.CERT_NOLA_B64 }}"               | base64 -d > /tmp/cert_nola.pfx
 
-          url   = os.environ['CF_WORKER_URL'].rstrip('/') + '/api/pendentes'
-          token = os.environ['CF_API_TOKEN']
-          data  = requests.get(url, params={'token': token}, timeout=30).json()
+      - name: Verificar status da nota
+        env:
+          CF_WORKER_URL:  ${{ secrets.CF_WORKER_URL }}
+          CF_API_TOKEN:   ${{ secrets.CF_API_TOKEN }}
+          CERT_MAX_PATH:                /tmp/cert_max.pfx
+          CERT_MAX_SENHA:               ${{ secrets.CERT_MAX_SENHA }}
+          CERT_ARIUM_PATH:              /tmp/cert_arium.pfx
+          CERT_ARIUM_SENHA:             ${{ secrets.CERT_ARIUM_SENHA }}
+          CERT_CONFRARIA_BENJAMIN_PATH: /tmp/cert_confraria_benjamin.pfx
+          CERT_CONFRARIA_BENJAMIN_SENHA: ${{ secrets.CERT_CONFRARIA_BENJAMIN_SENHA }}
+          CERT_CORA_PATH:               /tmp/cert_cora.pfx
+          CERT_CORA_SENHA:              ${{ secrets.CERT_CORA_SENHA }}
+          CERT_NOLA_PATH:               /tmp/cert_nola.pfx
+          CERT_NOLA_SENHA:              ${{ secrets.CERT_NOLA_SENHA }}
+          OBRA_KEY:  ${{ github.event.inputs.obra_key }}
+          NR_BUSCA:  ${{ github.event.inputs.numero }}
+          CNPJ_BUSCA: ${{ github.event.inputs.cnpj }}
+        run: python -m monitor.check_nota
 
-          obra_key  = "${{ github.event.inputs.obra_key }}"
-          nr_busca  = "${{ github.event.inputs.numero }}"
-          cnpj_busca = "${{ github.event.inputs.cnpj }}".replace('.','').replace('/','').replace('-','')
-
-          obra = next((o for o in data if o['key'] == obra_key), None)
-          if not obra:
-              print(f"Obra '{obra_key}' nao encontrada no KV")
-              exit(0)
-
-          print(f"Obra: {obra_key}")
-          print(f"Pendentes: {len(obra.get('pendentes',[]))} | Lancadas: {len(obra.get('lancadas',[]))}")
-          print()
-
-          found = False
-          for lista, label in [(obra.get('pendentes',[]), 'PENDENTE'), (obra.get('lancadas',[]), 'LANCADA')]:
-              for n in lista:
-                  cnpj_n = (n.get('cnpj_prest','') or '').replace('.','').replace('/','').replace('-','')
-                  nr_match   = nr_busca   and str(n.get('numero','')) == nr_busca
-                  cnpj_match = cnpj_busca and cnpj_n == cnpj_busca
-                  if nr_match or cnpj_match:
-                      print(f"[{label}]")
-                      for k, v in n.items():
-                          print(f"  {k}: {v}")
-                      print()
-                      found = True
-
-          if not found:
-              print("Nao encontrada nos criterios informados.")
-          PYEOF
+      - name: Remover certificados
+        if: always()
+        run: rm -f /tmp/cert_max.pfx /tmp/cert_arium.pfx /tmp/cert_confraria_benjamin.pfx /tmp/cert_cora.pfx /tmp/cert_nola.pfx
