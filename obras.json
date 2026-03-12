@@ -13,7 +13,8 @@
     "cert_env":       "CERT_ARIUM_PATH",
     "cert_senha_env": "CERT_ARIUM_SENHA",
     "alertar_emails": [],
-    "nfe_cuf":        "42"
+    "nfe_cuf":        "42",
+    "data_inicio":    "2026-01-01"
   },
   "confraria_benjamin": {
     "nome": "HLT Empreendimento 11 SPE LTDA (Confraria Benjamin)",
@@ -21,7 +22,8 @@
     "cert_env":       "CERT_CONFRARIA_BENJAMIN_PATH",
     "cert_senha_env": "CERT_CONFRARIA_BENJAMIN_SENHA",
     "alertar_emails": [],
-    "nfe_cuf":        "42"
+    "nfe_cuf":        "42",
+    "data_inicio":    "2026-01-01"
   },
   "cora": {
     "nome": "Empreendimento Rua Benjamin Constant SPE LTDA (Cora)",
@@ -29,7 +31,8 @@
     "cert_env":       "CERT_CORA_PATH",
     "cert_senha_env": "CERT_CORA_SENHA",
     "alertar_emails": [],
-    "nfe_cuf":        "42"
+    "nfe_cuf":        "42",
+    "data_inicio":    "2026-01-01"
   },
   "nola": {
     "nome": "HPB CDA 3 Empreendimentos Imobiliarios SPE LTDA (Nola)",
@@ -37,6 +40,7 @@
     "cert_env":       "CERT_NOLA_PATH",
     "cert_senha_env": "CERT_NOLA_SENHA",
     "alertar_emails": [],
-    "nfe_cuf":        "42"
+    "nfe_cuf":        "42",
+    "data_inicio":    "2026-01-01"
   }
 }

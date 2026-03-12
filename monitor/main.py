@@ -77,9 +77,11 @@ def processar_obra(
             pendentes_cf = [p for p in pendentes_cf if p["chave"] not in chaves_canceladas]
             conhecidas   = {n["chave"] for n in pendentes_cf}
 
+        data_inicio = obra.get("data_inicio", "")
         realmente_novas = [n for n in notas_novas
                            if n["chave"] not in conhecidas
-                           and n["chave"] not in chaves_canceladas]
+                           and n["chave"] not in chaves_canceladas
+                           and (not data_inicio or (n.get("data_emissao") or "") >= data_inicio)]
         if chaves_canceladas:
             canceladas_em_novas = [n for n in notas_novas if n["chave"] in chaves_canceladas]
             for n in canceladas_em_novas:
