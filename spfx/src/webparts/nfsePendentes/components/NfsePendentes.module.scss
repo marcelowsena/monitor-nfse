@@ -142,6 +142,19 @@
   margin-bottom: 14px;
 }
 
+.filtroSelect {
+  padding: 7px 12px;
+  border: 1px solid #cdd5e0;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1a1a2e;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  min-width: 180px;
+}
+
 .filtroInput {
   flex: 1;
   padding: 7px 12px;
@@ -215,14 +228,6 @@
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
-
-      // Larguras fixas por coluna
-      &:nth-child(1) { width: 100px; }  // Data Emissão
-      &:nth-child(2) { width: 90px;  }  // Nº NFS-e
-      &:nth-child(3) { width: auto;  }  // Prestador (flex)
-      &:nth-child(4) { width: 145px; }  // CNPJ
-      &:nth-child(5) { width: 100px; text-align: right; }  // Valor
-      &:nth-child(6) { width: 56px;  }  // PDF
     }
   }
 
@@ -385,6 +390,226 @@ details[open] .lancadasSummary::before {
   text-align: center;
   color: #27AE60;
   font-size: 14px;
+}
+
+// ── Resumo ───────────────────────────────────
+
+.resumoFiltroBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mesesPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+.mesPill {
+  padding: 4px 11px;
+  border: 1px solid #cdd5e0;
+  border-radius: 16px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  background: #fff;
+  color: #555;
+  transition: border-color 0.12s, color 0.12s;
+
+  &:hover {
+    border-color: #1F4E79;
+    color: #1F4E79;
+  }
+}
+
+.mesPillAtivo {
+  padding: 4px 11px;
+  border: 1px solid #1F4E79;
+  border-radius: 16px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  background: #1F4E79;
+  color: #fff;
+  font-weight: 600;
+  transition: background 0.12s;
+
+  &:hover {
+    background: #163d5e;
+    border-color: #163d5e;
+  }
+}
+
+.resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.resumoCards {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.resumoCard {
+  flex: 1;
+  min-width: 180px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resumoCardPendente {
+  border-left: 4px solid #C0392B;
+}
+
+.resumoCardValorPendente {
+  border-left: 4px solid #E67E22;
+}
+
+.resumoCardLancada {
+  border-left: 4px solid #27AE60;
+}
+
+.resumoCardLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  font-weight: 600;
+}
+
+.resumoCardNumero {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a2e;
+  line-height: 1.2;
+}
+
+.resumoCardSub {
+  font-size: 12px;
+  color: #999;
+}
+
+.resumoRankings {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rankingCard {
+  flex: 1;
+  min-width: 280px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.rankingTitle {
+  padding: 12px 16px;
+  background: #1F4E79;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.rankingItem {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  gap: 12px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.rankingPos {
+  font-weight: 700;
+  color: #1F4E79;
+  font-size: 13px;
+  min-width: 28px;
+}
+
+.rankingNome {
+  flex: 1;
+  font-size: 13px;
+  color: #1a1a2e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rankingBadge {
+  background: #fde8e8;
+  color: #7B2C2C;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.rankingValorText {
+  font-weight: 700;
+  color: #1F4E79;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.rankingVazio {
+  padding: 16px;
+  color: #27AE60;
+  font-size: 13px;
+  text-align: center;
+}
+
+// ── Gráficos ──────────────────────────────────
+
+.chartRow {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.chartCard {
+  flex: 1;
+  min-width: 280px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  padding: 0 0 8px 0;
+}
+
+.chartTitle {
+  padding: 10px 16px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 4px;
+}
+
+.chartVazio {
+  padding: 24px 16px;
+  text-align: center;
+  color: #aaa;
+  font-size: 12px;
+  font-style: italic;
 }
 
 // ── Rodapé ───────────────────────────────────

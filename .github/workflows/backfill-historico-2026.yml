@@ -1,4 +1,4 @@
-name: Backfill Historico NFS-e 2026
+name: Backfill Historico NFS-e
 
 on:
   workflow_dispatch:
@@ -6,11 +6,15 @@ on:
       obras:
         description: 'Obras a processar (separadas por espaco). Deixe vazio para todas.'
         required: false
-        default: 'arium confraria_benjamin cora nola'
+        default: 'arium confraria_benjamin cora nola max'
+      desde:
+        description: 'Data de corte (YYYY-MM-DD). Apenas notas emitidas a partir desta data.'
+        required: false
+        default: '2022-01-01'
 
 jobs:
   backfill:
-    name: Backfill NFS-e 2026
+    name: Backfill NFS-e
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -53,11 +57,12 @@ jobs:
           SIENGE_PASS:    ${{ secrets.SIENGE_PASS }}
         run: |
           OBRAS="${{ github.event.inputs.obras }}"
-          if [ -z "$OBRAS" ]; then
-            python -m monitor.backfill_historico_2026
-          else
-            python -m monitor.backfill_historico_2026 --obras $OBRAS
+          DESDE="${{ github.event.inputs.desde }}"
+          ARGS="--desde ${DESDE:-2022-01-01}"
+          if [ -n "$OBRAS" ]; then
+            ARGS="$ARGS --obras $OBRAS"
           fi
+          python -m monitor.backfill_historico_2026 $ARGS
 
       - name: Remover certificados temporarios
         if: always()

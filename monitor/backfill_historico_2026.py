@@ -1,11 +1,11 @@
 """
-Backfill historico 2026 — busca TODAS as NFS-e recebidas em 2026 para as obras
-informadas e popula lancadas_kv com as que ja estao no Sienge.
+Backfill historico NFS-e — busca TODAS as NFS-e recebidas a partir de --desde
+para as obras informadas e popula lancadas_kv com as que ja estao no Sienge.
 
 Uso local:
   CF_WORKER_URL=... CF_API_TOKEN=... SIENGE_USER=... SIENGE_PASS=... \
   CERT_ARIUM_PATH=... CERT_ARIUM_SENHA=... \
-      python -m monitor.backfill_historico_2026 --obras arium cora nola confraria_benjamin
+      python -m monitor.backfill_historico_2026 --obras arium cora nola confraria_benjamin --desde 2022-01-01
 
 No GitHub Actions basta acionar o workflow backfill-historico-2026.yml manualmente.
 """
@@ -24,7 +24,7 @@ from cloudflare import CloudflareClient
 from cnpj_lookup import preencher_nomes
 
 
-CORTE_ANO = "2026-01-01"  # so notas emitidas a partir desta data
+CORTE_ANO_PADRAO = "2022-01-01"  # padrao: notas emitidas a partir de 2022
 
 
 def _carregar_obras() -> dict:
@@ -33,7 +33,7 @@ def _carregar_obras() -> dict:
         return json.load(f)
 
 
-def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: SiengeClient) -> None:
+def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: SiengeClient, corte: str) -> None:
     print(f"\n{'─'*55}")
     print(f"  Obra : {obra['nome']}")
     print(f"  CNPJ : {obra['cnpj']}")
@@ -77,9 +77,9 @@ def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: Sien
         pendentes_kv = [p for p in pendentes_kv if p["chave"] not in chaves_canceladas]
         chaves_pendentes = {n["chave"] for n in pendentes_kv}
 
-    # 4. Filtra para 2026
-    notas_2026 = [n for n in todas_notas if (n.get("data_emissao") or "") >= CORTE_ANO]
-    print(f"  Notas em 2026 ou mais  : {len(notas_2026)}")
+    # 4. Filtra pelo corte de data
+    notas_2026 = [n for n in todas_notas if (n.get("data_emissao") or "") >= corte]
+    print(f"  Notas a partir de {corte}: {len(notas_2026)}")
 
     if not notas_2026:
         if canceladas_removidas > 0:
@@ -139,7 +139,7 @@ def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: Sien
     print(f"\n  Adicionadas ao historico lancadas: {adicionadas}")
     print(f"  Total lancadas KV apos backfill  : {len(lancadas_kv)}")
 
-    # 8. Notas de 2026 que NAO estao no Sienge e NAO estao nos pendentes → adiciona como pendente
+    # 8. Notas no periodo que NAO estao no Sienge e NAO estao nos pendentes → adiciona como pendente
     novas_pendentes = 0
     for nota in candidatas:
         chave = nota["chave"]
@@ -171,7 +171,7 @@ def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: Sien
 def main() -> None:
     todas_obras = list(_carregar_obras().keys())
 
-    parser = argparse.ArgumentParser(description="Backfill historico 2026 de NFS-e")
+    parser = argparse.ArgumentParser(description="Backfill historico NFS-e")
     parser.add_argument(
         "--obras",
         nargs="+",
@@ -179,12 +179,18 @@ def main() -> None:
         choices=todas_obras,
         help="Chaves das obras a processar (padrao: todas)",
     )
+    parser.add_argument(
+        "--desde",
+        default=CORTE_ANO_PADRAO,
+        help=f"Data de corte no formato YYYY-MM-DD (padrao: {CORTE_ANO_PADRAO})",
+    )
     args = parser.parse_args()
 
     print("=" * 55)
-    print("  Backfill Historico NFS-e 2026 — INVCP")
+    print("  Backfill Historico NFS-e — INVCP")
     print(f"  {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
-    print(f"  Obras: {', '.join(args.obras)}")
+    print(f"  Desde  : {args.desde}")
+    print(f"  Obras  : {', '.join(args.obras)}")
     print("=" * 55)
 
     cf = CloudflareClient(
@@ -201,7 +207,7 @@ def main() -> None:
     for obra_key in args.obras:
         obra = obras[obra_key]
         try:
-            processar_obra(obra_key, obra, cf, sienge)
+            processar_obra(obra_key, obra, cf, sienge, args.desde)
         except Exception as e:
             print(f"\n  [ERRO] Obra '{obra_key}': {e}")
             import traceback
