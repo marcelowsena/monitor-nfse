@@ -63,15 +63,17 @@ def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: Sien
 
     # 3. Aplica cancelamentos
     chaves_canceladas = {c["chave"] for c in cancelamentos}
+    canceladas_removidas = 0
     if chaves_canceladas:
         antes = len(todas_notas)
         todas_notas = [n for n in todas_notas if n["chave"] not in chaves_canceladas]
         print(f"  Cancelamentos removidos de notas novas: {antes - len(todas_notas)}")
 
         # Remove tambem canceladas que ja estejam nos pendentes do KV
-        pendentes_cancelados = [p for p in pendentes_kv if p["chave"] in chaves_canceladas]
-        for p in pendentes_cancelados:
-            print(f"  [CANCELADA] Removendo de pendentes KV: nr={p.get('numero','')} ({p['chave'][:25]}...)")
+        for p in pendentes_kv:
+            if p["chave"] in chaves_canceladas:
+                print(f"  [CANCELADA] Removendo de pendentes KV: nr={p.get('numero','')} ({p['chave'][:25]}...)")
+                canceladas_removidas += 1
         pendentes_kv = [p for p in pendentes_kv if p["chave"] not in chaves_canceladas]
         chaves_pendentes = {n["chave"] for n in pendentes_kv}
 
@@ -80,7 +82,18 @@ def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: Sien
     print(f"  Notas em 2026 ou mais  : {len(notas_2026)}")
 
     if not notas_2026:
-        print("  Nada a processar.")
+        if canceladas_removidas > 0:
+            agora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            cf.sincronizar(
+                obra_key           = obra_key,
+                pendentes          = pendentes_kv,
+                ultimo_nsu         = estado.get("ultimo_nsu", nsu_final),
+                ultima_verificacao = agora,
+                lancadas           = lancadas_kv,
+            )
+            print(f"  KV atualizado: {canceladas_removidas} cancelada(s) removida(s).")
+        else:
+            print("  Nada a processar.")
         return
 
     # 5. Separa candidatas: excluindo as que ja estao em lancadas_kv (com titulo confirmado)
@@ -88,7 +101,18 @@ def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: Sien
     print(f"  Candidatas (fora do KV lancadas): {len(candidatas)}")
 
     if not candidatas:
-        print("  Historico ja esta completo para esta obra.")
+        if canceladas_removidas > 0:
+            agora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            cf.sincronizar(
+                obra_key           = obra_key,
+                pendentes          = pendentes_kv,
+                ultimo_nsu         = estado.get("ultimo_nsu", nsu_final),
+                ultima_verificacao = agora,
+                lancadas           = lancadas_kv,
+            )
+            print(f"  KV atualizado: {canceladas_removidas} cancelada(s) removida(s).")
+        else:
+            print("  Historico ja esta completo para esta obra.")
         return
 
     # 6. Verifica no Sienge
@@ -128,7 +152,7 @@ def processar_obra(obra_key: str, obra: dict, cf: CloudflareClient, sienge: Sien
     if novas_pendentes:
         print(f"  Novas pendentes adicionadas: {novas_pendentes}")
 
-    if adicionadas == 0 and novas_pendentes == 0:
+    if adicionadas == 0 and novas_pendentes == 0 and canceladas_removidas == 0:
         print("  Nada alterado no KV.")
         return
 
