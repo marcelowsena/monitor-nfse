@@ -141,7 +141,7 @@ def processar_obra(
     print(f"  Historico lancadas: {len(lancadas_kv)}")
 
     # ── Etapa 6b: classifica NF-e ──
-    if obra.get("nfe_cuf") and para_ver_nfe is not None:
+    if tipo == "nfe" and obra.get("nfe_cuf") and para_ver_nfe is not None:
         pendentes_nfe_atualizados = (
             [p for p in pendentes_nfe_cf if p["chave"] not in lancadas_nfe]
             + [{**n, "obra": obra_key} for n in realmente_novas_nfe if n["chave"] not in lancadas_nfe]
