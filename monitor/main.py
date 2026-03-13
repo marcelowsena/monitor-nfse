@@ -160,23 +160,7 @@ def processar_obra(
                 chaves_lanc_nfe.add(p["chave"])
         print(f"  [NF-e] Pendentes: {len(pendentes_nfe_atualizados)} | NSU: {novo_nsu_nfe}")
 
-    # ── Etapa 7: baixa PDFs (apenas NFS-e) ──
-    if tipo == "nfse":
-        sem_pdf = [n for n in pendentes_atualizados if not n.get("has_pdf")]
-        if sem_pdf:
-            print(f"  Baixando PDFs faltantes: {len(sem_pdf)}")
-        for nota in sem_pdf:
-            chave = nota["chave"]
-            try:
-                pdf = sefaz.baixar_pdf(chave)
-                if pdf:
-                    cf.salvar_pdf(chave, pdf)
-                    nota["has_pdf"] = True
-                    print(f"    PDF salvo: {chave[:20]}...")
-            except Exception as e:
-                print(f"    Erro ao salvar PDF {chave[:20]}...: {e}")
-
-    # ── Etapa 8: sincroniza com Cloudflare KV ──
+    # ── Etapa 7: sincroniza com Cloudflare KV (antes dos PDFs — garante NSU salvo) ──
     agora = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     cf.sincronizar(
         obra_key, pendentes_atualizados, novo_nsu, agora,
@@ -186,6 +170,35 @@ def processar_obra(
         ultimo_nsu_nfe=novo_nsu_nfe,
     )
     print(f"  KV atualizado. NSU salvo: {novo_nsu}")
+
+    # ── Etapa 8: baixa PDFs (apenas NFS-e) ──
+    if tipo == "nfse":
+        sem_pdf = [n for n in pendentes_atualizados if not n.get("has_pdf")]
+        if sem_pdf:
+            print(f"  Baixando PDFs faltantes: {len(sem_pdf)}")
+        pdfs_novos = False
+        for nota in sem_pdf:
+            chave = nota["chave"]
+            try:
+                pdf = sefaz.baixar_pdf(chave)
+                if pdf:
+                    cf.salvar_pdf(chave, pdf)
+                    nota["has_pdf"] = True
+                    pdfs_novos = True
+                    print(f"    PDF salvo: {chave[:20]}...")
+            except Exception as e:
+                print(f"    Erro ao salvar PDF {chave[:20]}...: {e}")
+        # Atualiza has_pdf no KV se algum PDF foi baixado
+        if pdfs_novos:
+            agora2 = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            cf.sincronizar(
+                obra_key, pendentes_atualizados, novo_nsu, agora2,
+                lancadas=lancadas_kv,
+                pendentes_nfe=pendentes_nfe_atualizados,
+                lancadas_nfe=lancadas_nfe_kv,
+                ultimo_nsu_nfe=novo_nsu_nfe,
+            )
+            print(f"  KV atualizado com has_pdf.")
 
     # ── Etapa 9: notifica ──
     if pendentes_novos:

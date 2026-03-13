@@ -9,7 +9,7 @@ jobs:
   monitor:
     name: NFS-e ${{ matrix.obra }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     # Cada obra roda em runner separado — evita timeout por processamento sequencial
     strategy:
