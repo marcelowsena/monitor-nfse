@@ -84,39 +84,35 @@ export default {
     // ── POST /api/sync  (Bearer) ────────────────────────────────────
     if (url.pathname === '/api/sync' && request.method === 'POST') {
       if (!checkBearer()) return json({ error: 'Unauthorized' }, 401);
-      try {
-        const { obra, pendentes, lancadas, ultimo_nsu, ultima_verificacao,
-                pendentes_nfe, lancadas_nfe, ultimo_nsu_nfe } = await request.json();
-        if (!obra) return json({ error: 'Campo "obra" obrigatorio' }, 400);
+      const { obra, pendentes, lancadas, ultimo_nsu, ultima_verificacao,
+              pendentes_nfe, lancadas_nfe, ultimo_nsu_nfe } = await request.json();
+      if (!obra) return json({ error: 'Campo "obra" obrigatorio' }, 400);
 
-        await Promise.all([
-          pendentes !== undefined
-            ? env.KV.put(`${obra}:pendentes`, JSON.stringify(pendentes))
-            : Promise.resolve(),
-          lancadas !== undefined
-            ? env.KV.put(`${obra}:lancadas`, JSON.stringify(lancadas))
-            : Promise.resolve(),
-          ultimo_nsu !== undefined
-            ? env.KV.put(`${obra}:ultimo_nsu`, String(ultimo_nsu))
-            : Promise.resolve(),
-          ultima_verificacao !== undefined
-            ? env.KV.put(`${obra}:ultima_verificacao`, ultima_verificacao)
-            : Promise.resolve(),
-          pendentes_nfe !== undefined
-            ? env.KV.put(`${obra}:pendentes_nfe`, JSON.stringify(pendentes_nfe))
-            : Promise.resolve(),
-          lancadas_nfe !== undefined
-            ? env.KV.put(`${obra}:lancadas_nfe`, JSON.stringify(lancadas_nfe))
-            : Promise.resolve(),
-          ultimo_nsu_nfe !== undefined
-            ? env.KV.put(`${obra}:ultimo_nsu_nfe`, String(ultimo_nsu_nfe))
-            : Promise.resolve(),
-        ]);
+      await Promise.all([
+        pendentes !== undefined
+          ? env.KV.put(`${obra}:pendentes`, JSON.stringify(pendentes))
+          : Promise.resolve(),
+        lancadas !== undefined
+          ? env.KV.put(`${obra}:lancadas`, JSON.stringify(lancadas))
+          : Promise.resolve(),
+        ultimo_nsu !== undefined
+          ? env.KV.put(`${obra}:ultimo_nsu`, String(ultimo_nsu))
+          : Promise.resolve(),
+        ultima_verificacao !== undefined
+          ? env.KV.put(`${obra}:ultima_verificacao`, ultima_verificacao)
+          : Promise.resolve(),
+        pendentes_nfe !== undefined
+          ? env.KV.put(`${obra}:pendentes_nfe`, JSON.stringify(pendentes_nfe))
+          : Promise.resolve(),
+        lancadas_nfe !== undefined
+          ? env.KV.put(`${obra}:lancadas_nfe`, JSON.stringify(lancadas_nfe))
+          : Promise.resolve(),
+        ultimo_nsu_nfe !== undefined
+          ? env.KV.put(`${obra}:ultimo_nsu_nfe`, String(ultimo_nsu_nfe))
+          : Promise.resolve(),
+      ]);
 
-        return json({ ok: true });
-      } catch (err) {
-        return json({ error: String(err), stack: err.stack || '' }, 500);
-      }
+      return json({ ok: true });
     }
 
     // ── GET /api/pdf/:chave?token=... ───────────────────────────────

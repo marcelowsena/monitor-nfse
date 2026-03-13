@@ -125,6 +125,4 @@ class CloudflareClient:
             headers={"Authorization": f"Bearer {self._token}"},
             timeout=30,
         )
-        if not r.ok:
-            print(f"    [SYNC ERROR] status={r.status_code} body={r.text[:500]}")
         r.raise_for_status()
