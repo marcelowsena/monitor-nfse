@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        obra: [max, arium, confraria_benjamin, cora, nola]
+        obra: [max, arium, confraria_benjamin, cora, nola, emanuel_pinto, essenza, massimo, naut, neoon, nort_beach]
 
     steps:
       - name: Checkout
@@ -38,6 +38,12 @@ jobs:
             confraria_benjamin)  echo "${{ secrets.CERT_CONFRARIA_BENJAMIN_B64 }}" | base64 -d > /tmp/cert.pfx ;;
             cora)                echo "${{ secrets.CERT_CORA_B64 }}"               | base64 -d > /tmp/cert.pfx ;;
             nola)                echo "${{ secrets.CERT_NOLA_B64 }}"               | base64 -d > /tmp/cert.pfx ;;
+            emanuel_pinto)       echo "${{ secrets.CERT_EMANUEL_PINTO_B64 }}"      | base64 -d > /tmp/cert.pfx ;;
+            essenza)             echo "${{ secrets.CERT_ESSENZA_B64 }}"            | base64 -d > /tmp/cert.pfx ;;
+            massimo)             echo "${{ secrets.CERT_MASSIMO_B64 }}"            | base64 -d > /tmp/cert.pfx ;;
+            naut)                echo "${{ secrets.CERT_NAUT_B64 }}"               | base64 -d > /tmp/cert.pfx ;;
+            neoon)               echo "${{ secrets.CERT_NEEON_B64 }}"              | base64 -d > /tmp/cert.pfx ;;
+            nort_beach)          echo "${{ secrets.CERT_NORT_BEACH_B64 }}"         | base64 -d > /tmp/cert.pfx ;;
           esac
 
       - name: Executar monitor NF-e
@@ -53,6 +59,18 @@ jobs:
           CERT_CORA_SENHA:              ${{ secrets.CERT_CORA_SENHA }}
           CERT_NOLA_PATH:               /tmp/cert.pfx
           CERT_NOLA_SENHA:              ${{ secrets.CERT_NOLA_SENHA }}
+          CERT_EMANUEL_PINTO_PATH:      /tmp/cert.pfx
+          CERT_EMANUEL_PINTO_SENHA:     ${{ secrets.CERT_EMANUEL_PINTO_SENHA }}
+          CERT_ESSENZA_PATH:            /tmp/cert.pfx
+          CERT_ESSENZA_SENHA:           ${{ secrets.CERT_ESSENZA_SENHA }}
+          CERT_MASSIMO_PATH:            /tmp/cert.pfx
+          CERT_MASSIMO_SENHA:           ${{ secrets.CERT_MASSIMO_SENHA }}
+          CERT_NAUT_PATH:               /tmp/cert.pfx
+          CERT_NAUT_SENHA:              ${{ secrets.CERT_NAUT_SENHA }}
+          CERT_NEOON_PATH:              /tmp/cert.pfx
+          CERT_NEOON_SENHA:             ${{ secrets.CERT_NEEON_SENHA }}
+          CERT_NORT_BEACH_PATH:         /tmp/cert.pfx
+          CERT_NORT_BEACH_SENHA:        ${{ secrets.CERT_NORT_BEACH_SENHA }}
 
           # Cloudflare Worker
           CF_WORKER_URL:  ${{ secrets.CF_WORKER_URL }}

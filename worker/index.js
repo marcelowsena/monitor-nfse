@@ -21,11 +21,17 @@
  */
 
 const OBRAS = [
-  { key: "max",                 nome: "Pulse — HLT Max Colin SPE" },
-  { key: "arium",               nome: "Arium — HPB CDA 4" },
-  { key: "confraria_benjamin",  nome: "Confraria Benjamin — HLT 11" },
-  { key: "cora",                nome: "Cora — Benjamin Constant" },
-  { key: "nola",                nome: "Nola — HPB CDA 3" },
+  { key: "max",                 nome: "Pulse — HLT Max Colin SPE",          regiao: "joinville" },
+  { key: "arium",               nome: "Arium — HPB CDA 4",                  regiao: "joinville" },
+  { key: "confraria_benjamin",  nome: "Confraria Benjamin — HLT 11",        regiao: "joinville" },
+  { key: "cora",                nome: "Cora — Benjamin Constant",           regiao: "joinville" },
+  { key: "nola",                nome: "Nola — HPB CDA 3",                   regiao: "joinville" },
+  { key: "emanuel_pinto",       nome: "Emanuel Pinto — Empreendimento 4",   regiao: "litoral"   },
+  { key: "essenza",             nome: "Essenza — HLT Empreendimento 7",     regiao: "litoral"   },
+  { key: "massimo",             nome: "Massimo — Empreendimento Picarras 5",regiao: "litoral"   },
+  { key: "naut",                nome: "Naut — Naut Empreendimento",         regiao: "litoral"   },
+  { key: "neoon",               nome: "Neoon — Neoon 3122",                 regiao: "litoral"   },
+  { key: "nort_beach",          nome: "Nort Beach — HLT Empreendimento 6",  regiao: "litoral"   },
 ];
 
 export default {
@@ -256,7 +262,7 @@ async function carregarObra(obra, env) {
   const lancNfe = (lancadasNfe  || []).map(n => ({ ...n, tipo: 'nfe' }));
 
   return {
-    key: obra.key, nome: obra.nome,
+    key: obra.key, nome: obra.nome, regiao: obra.regiao || '',
     pendentes: [...pend, ...pendNfe],
     lancadas:  [...lanc, ...lancNfe],
     ultimo_nsu: nsu || '0',

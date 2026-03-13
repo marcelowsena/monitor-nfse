@@ -6,7 +6,8 @@
     "cert_senha_env": "CERT_MAX_SENHA",
     "alertar_emails": [],
     "nfe_cuf":        "42",
-    "data_inicio":    "2022-01-01"
+    "data_inicio":    "2022-01-01",
+    "regiao":         "joinville"
   },
   "arium": {
     "nome": "HPB CDA 4 Empreendimentos Imobiliarios SPE LTDA (Arium)",
@@ -15,7 +16,8 @@
     "cert_senha_env": "CERT_ARIUM_SENHA",
     "alertar_emails": [],
     "nfe_cuf":        "42",
-    "data_inicio":    "2022-01-01"
+    "data_inicio":    "2022-01-01",
+    "regiao":         "joinville"
   },
   "confraria_benjamin": {
     "nome": "HLT Empreendimento 11 SPE LTDA (Confraria Benjamin)",
@@ -24,7 +26,8 @@
     "cert_senha_env": "CERT_CONFRARIA_BENJAMIN_SENHA",
     "alertar_emails": [],
     "nfe_cuf":        "42",
-    "data_inicio":    "2022-01-01"
+    "data_inicio":    "2022-01-01",
+    "regiao":         "joinville"
   },
   "cora": {
     "nome": "Empreendimento Rua Benjamin Constant SPE LTDA (Cora)",
@@ -33,7 +36,8 @@
     "cert_senha_env": "CERT_CORA_SENHA",
     "alertar_emails": [],
     "nfe_cuf":        "42",
-    "data_inicio":    "2022-01-01"
+    "data_inicio":    "2022-01-01",
+    "regiao":         "joinville"
   },
   "nola": {
     "nome": "HPB CDA 3 Empreendimentos Imobiliarios SPE LTDA (Nola)",
@@ -42,6 +46,67 @@
     "cert_senha_env": "CERT_NOLA_SENHA",
     "alertar_emails": [],
     "nfe_cuf":        "42",
-    "data_inicio":    "2022-01-01"
+    "data_inicio":    "2022-01-01",
+    "regiao":         "joinville"
+  },
+  "emanuel_pinto": {
+    "nome": "Empreendimento 4 SPE LTDA (Emanuel Pinto)",
+    "cnpj": "52739512000178",
+    "cert_env":       "CERT_EMANUEL_PINTO_PATH",
+    "cert_senha_env": "CERT_EMANUEL_PINTO_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42",
+    "data_inicio":    "2022-01-01",
+    "regiao":         "litoral"
+  },
+  "essenza": {
+    "nome": "HLT Empreendimento 7 SPE LTDA (Essenza)",
+    "cnpj": "55271832000134",
+    "cert_env":       "CERT_ESSENZA_PATH",
+    "cert_senha_env": "CERT_ESSENZA_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42",
+    "data_inicio":    "2022-01-01",
+    "regiao":         "litoral"
+  },
+  "massimo": {
+    "nome": "Empreendimento Picarras 5 SPE LTDA (Massimo)",
+    "cnpj": "49701783000120",
+    "cert_env":       "CERT_MASSIMO_PATH",
+    "cert_senha_env": "CERT_MASSIMO_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42",
+    "data_inicio":    "2022-01-01",
+    "regiao":         "litoral"
+  },
+  "naut": {
+    "nome": "Naut Empreendimento SPE LTDA (Naut)",
+    "cnpj": "51649882000151",
+    "cert_env":       "CERT_NAUT_PATH",
+    "cert_senha_env": "CERT_NAUT_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42",
+    "data_inicio":    "2022-01-01",
+    "regiao":         "litoral"
+  },
+  "neoon": {
+    "nome": "Neoon 3122 (Neoon)",
+    "cnpj": "48052406000144",
+    "cert_env":       "CERT_NEOON_PATH",
+    "cert_senha_env": "CERT_NEOON_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42",
+    "data_inicio":    "2022-01-01",
+    "regiao":         "litoral"
+  },
+  "nort_beach": {
+    "nome": "HLT Empreendimento 6 SPE LTDA (Nort Beach)",
+    "cnpj": "55285379000115",
+    "cert_env":       "CERT_NORT_BEACH_PATH",
+    "cert_senha_env": "CERT_NORT_BEACH_SENHA",
+    "alertar_emails": [],
+    "nfe_cuf":        "42",
+    "data_inicio":    "2022-01-01",
+    "regiao":         "litoral"
   }
 }

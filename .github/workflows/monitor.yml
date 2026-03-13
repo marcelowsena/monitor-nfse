@@ -31,6 +31,12 @@ jobs:
           echo "${{ secrets.CERT_CONFRARIA_BENJAMIN_B64 }}" | base64 -d > /tmp/cert_confraria_benjamin.pfx
           echo "${{ secrets.CERT_CORA_B64 }}"               | base64 -d > /tmp/cert_cora.pfx
           echo "${{ secrets.CERT_NOLA_B64 }}"               | base64 -d > /tmp/cert_nola.pfx
+          echo "${{ secrets.CERT_EMANUEL_PINTO_B64 }}"      | base64 -d > /tmp/cert_emanuel_pinto.pfx
+          echo "${{ secrets.CERT_ESSENZA_B64 }}"            | base64 -d > /tmp/cert_essenza.pfx
+          echo "${{ secrets.CERT_MASSIMO_B64 }}"            | base64 -d > /tmp/cert_massimo.pfx
+          echo "${{ secrets.CERT_NAUT_B64 }}"               | base64 -d > /tmp/cert_naut.pfx
+          echo "${{ secrets.CERT_NEEON_B64 }}"              | base64 -d > /tmp/cert_neeon.pfx
+          echo "${{ secrets.CERT_NORT_BEACH_B64 }}"         | base64 -d > /tmp/cert_nort_beach.pfx
 
       - name: Executar monitor
         env:
@@ -45,6 +51,18 @@ jobs:
           CERT_CORA_SENHA:              ${{ secrets.CERT_CORA_SENHA }}
           CERT_NOLA_PATH:               /tmp/cert_nola.pfx
           CERT_NOLA_SENHA:              ${{ secrets.CERT_NOLA_SENHA }}
+          CERT_EMANUEL_PINTO_PATH:      /tmp/cert_emanuel_pinto.pfx
+          CERT_EMANUEL_PINTO_SENHA:     ${{ secrets.CERT_EMANUEL_PINTO_SENHA }}
+          CERT_ESSENZA_PATH:            /tmp/cert_essenza.pfx
+          CERT_ESSENZA_SENHA:           ${{ secrets.CERT_ESSENZA_SENHA }}
+          CERT_MASSIMO_PATH:            /tmp/cert_massimo.pfx
+          CERT_MASSIMO_SENHA:           ${{ secrets.CERT_MASSIMO_SENHA }}
+          CERT_NAUT_PATH:               /tmp/cert_naut.pfx
+          CERT_NAUT_SENHA:              ${{ secrets.CERT_NAUT_SENHA }}
+          CERT_NEOON_PATH:              /tmp/cert_neeon.pfx
+          CERT_NEOON_SENHA:             ${{ secrets.CERT_NEEON_SENHA }}
+          CERT_NORT_BEACH_PATH:         /tmp/cert_nort_beach.pfx
+          CERT_NORT_BEACH_SENHA:        ${{ secrets.CERT_NORT_BEACH_SENHA }}
 
           # Cloudflare Worker
           CF_WORKER_URL:  ${{ secrets.CF_WORKER_URL }}
@@ -67,4 +85,4 @@ jobs:
 
       - name: Remover certificados temporários
         if: always()
-        run: rm -f /tmp/cert_max.pfx /tmp/cert_arium.pfx /tmp/cert_confraria_benjamin.pfx /tmp/cert_cora.pfx /tmp/cert_nola.pfx
+        run: rm -f /tmp/cert_max.pfx /tmp/cert_arium.pfx /tmp/cert_confraria_benjamin.pfx /tmp/cert_cora.pfx /tmp/cert_nola.pfx /tmp/cert_emanuel_pinto.pfx /tmp/cert_essenza.pfx /tmp/cert_massimo.pfx /tmp/cert_naut.pfx /tmp/cert_neeon.pfx /tmp/cert_nort_beach.pfx

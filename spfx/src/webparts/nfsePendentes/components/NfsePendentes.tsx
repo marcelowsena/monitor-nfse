@@ -13,11 +13,13 @@ interface IState {
   ultimaAtt:           string;
   filtro:              string;
   filtroObra:          string;
+  filtroRegiao:        string;
   sortField:           SortField;
   sortDir:             SortDir;
   abaAtiva:            Aba;
-  filtroResumoObra:  string;
-  filtroResumoMeses: string[];
+  filtroResumoObra:    string;
+  filtroResumoRegiao:  string;
+  filtroResumoMeses:   string[];
 }
 
 export default class NfsePendentes extends React.Component<INfsePendentesProps, IState> {
@@ -25,9 +27,9 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
   constructor(props: INfsePendentesProps) {
     super(props);
     this.state = {
-      obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '', filtroObra: '',
+      obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '', filtroObra: '', filtroRegiao: '',
       sortField: 'data_emissao', sortDir: 'desc', abaAtiva: 'pendentes',
-      filtroResumoObra: '', filtroResumoMeses: [],
+      filtroResumoObra: '', filtroResumoRegiao: '', filtroResumoMeses: [],
     };
   }
 
@@ -181,8 +183,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
 
   public render(): React.ReactElement {
     const {
-      carregando, erro, obras, ultimaAtt, filtro, filtroObra,
-      sortField, sortDir, abaAtiva, filtroResumoObra, filtroResumoMeses,
+      carregando, erro, obras, ultimaAtt, filtro, filtroObra, filtroRegiao,
+      sortField, sortDir, abaAtiva, filtroResumoObra, filtroResumoRegiao, filtroResumoMeses,
     } = this.state;
 
     const totalPendentes = obras.reduce((s, o) => s + o.pendentes.length, 0);
@@ -197,7 +199,9 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     }));
     const mesesDisponiveis = Object.keys(mesesSet).sort().reverse();
 
-    const obrasResumo = obras.filter(o => !filtroResumoObra || o.key === filtroResumoObra);
+    const obrasResumo = obras
+      .filter(o => !filtroResumoRegiao || (o as any).regiao === filtroResumoRegiao)
+      .filter(o => !filtroResumoObra || o.key === filtroResumoObra);
     const notasResumo = obrasResumo
       .flatMap(o => o.pendentes)
       .filter(n => filtroResumoMeses.length === 0 || filtroResumoMeses.indexOf((n.data_emissao || '').slice(0, 7)) >= 0);
@@ -232,10 +236,11 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     const dadosValor = mesesOrd.map(m => ({ label: this._formatarMes(m), valor: porMes[m].valor }));
 
     // ── Dados para abas de lista ───────────────────────────────────────────────
-    const opcoesObra = obras.map(o => ({ key: o.key, nome: o.nome || o.key }));
+    const obrasFiltradas = obras.filter(o => !filtroRegiao || (o as any).regiao === filtroRegiao);
+    const opcoesObra = obrasFiltradas.map(o => ({ key: o.key, nome: o.nome || o.key }));
     const termo = filtro.toLowerCase();
 
-    const notasPendentes = obras
+    const notasPendentes = obrasFiltradas
       .filter(o => !filtroObra || o.key === filtroObra)
       .flatMap(o => o.pendentes.map(n => ({ ...n, obra_key: o.key, obra_nome: o.nome || o.key })))
       .filter(n => {
@@ -258,7 +263,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
         return sortDir === 'asc' ? cmp : -cmp;
       });
 
-    const notasLancadas = obras
+    const notasLancadas = obrasFiltradas
       .filter(o => !filtroObra || o.key === filtroObra)
       .flatMap(o => (o.lancadas || []).map(n => ({ ...n, obra_key: o.key, obra_nome: o.nome || o.key })))
       .filter(n => {
@@ -338,6 +343,15 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
         {!carregando && !erro && obras.length > 0 && abaAtiva !== 'resumo' && (
           <div className={styles.filtroBar}>
             <select
+              value={filtroRegiao}
+              onChange={e => this.setState({ filtroRegiao: e.target.value, filtroObra: '' })}
+              className={styles.filtroSelect}
+            >
+              <option value="">Todas as regioes</option>
+              <option value="joinville">Joinville</option>
+              <option value="litoral">Litoral</option>
+            </select>
+            <select
               value={filtroObra}
               onChange={e => this.setState({ filtroObra: e.target.value })}
               className={styles.filtroSelect}
@@ -354,8 +368,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
               onChange={e => this.setState({ filtro: e.target.value })}
               className={styles.filtroInput}
             />
-            {(filtro || filtroObra) && (
-              <button className={styles.filtroClear} onClick={() => this.setState({ filtro: '', filtroObra: '' })}>
+            {(filtro || filtroObra || filtroRegiao) && (
+              <button className={styles.filtroClear} onClick={() => this.setState({ filtro: '', filtroObra: '', filtroRegiao: '' })}>
                 X
               </button>
             )}
@@ -495,14 +509,26 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
             {/* Filtros do Resumo */}
             <div className={styles.resumoFiltroBar}>
               <select
+                value={filtroResumoRegiao}
+                onChange={e => this.setState({ filtroResumoRegiao: e.target.value, filtroResumoObra: '' })}
+                className={styles.filtroSelect}
+              >
+                <option value="">Todas as regioes</option>
+                <option value="joinville">Joinville</option>
+                <option value="litoral">Litoral</option>
+              </select>
+              <select
                 value={filtroResumoObra}
                 onChange={e => this.setState({ filtroResumoObra: e.target.value })}
                 className={styles.filtroSelect}
               >
                 <option value="">Todas as obras</option>
-                {opcoesObra.map(o => (
-                  <option key={o.key} value={o.key}>{o.nome}</option>
-                ))}
+                {obras
+                  .filter(o => !filtroResumoRegiao || (o as any).regiao === filtroResumoRegiao)
+                  .map(o => (
+                    <option key={o.key} value={o.key}>{o.nome || o.key}</option>
+                  ))
+                }
               </select>
               <div className={styles.mesesPills}>
                 {mesesDisponiveis.map(m => {
@@ -523,8 +549,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                   );
                 })}
               </div>
-              {(filtroResumoObra || filtroResumoMeses.length > 0) && (
-                <button className={styles.filtroClear} onClick={() => this.setState({ filtroResumoObra: '', filtroResumoMeses: [] })}>
+              {(filtroResumoObra || filtroResumoRegiao || filtroResumoMeses.length > 0) && (
+                <button className={styles.filtroClear} onClick={() => this.setState({ filtroResumoObra: '', filtroResumoRegiao: '', filtroResumoMeses: [] })}>
                   X
                 </button>
               )}
