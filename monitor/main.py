@@ -206,6 +206,13 @@ def main() -> None:
         default="nfse",
         help="Tipo de nota a monitorar: nfse (serviço) ou nfe (material)",
     )
+    parser.add_argument(
+        "--obras",
+        nargs="+",
+        default=None,
+        metavar="OBRA",
+        help="Filtrar obras específicas (ex: --obras max arium). Padrão: todas.",
+    )
     args = parser.parse_args()
 
     label = "NFS-e (serviço)" if args.tipo == "nfse" else "NF-e (material)"
@@ -225,6 +232,11 @@ def main() -> None:
     )
 
     obras = _carregar_obras()
+
+    if args.obras:
+        obras = {k: v for k, v in obras.items() if k in args.obras}
+        if not obras:
+            print(f"  [AVISO] Nenhuma obra encontrada para: {args.obras}")
 
     for obra_key, obra in obras.items():
         try:
