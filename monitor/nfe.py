@@ -106,6 +106,17 @@ class NFeClient:
             print(f"    [NF-e] Lote processado. Próximo NSU: {nsu}")
             time.sleep(DELAY_ENTRE_LOTES)
 
+        # Dedup por chave: procNFe tem precedência sobre resNFe (dados mais completos)
+        seen: dict[str, dict] = {}
+        for n in notas:
+            chave = n["chave"]
+            if chave not in seen or n.get("_schema") == "procNFe":
+                seen[chave] = n
+        notas = [
+            {k: v for k, v in n.items() if k != "_schema"}
+            for n in seen.values()
+        ]
+
         return notas, cancelamentos, nsu
 
     # ──────────────────────────────────────────
@@ -217,20 +228,21 @@ class NFeClient:
             return (cur.text or "").strip() if cur is not None else ""
 
         # resNFe: campos diretos no root
+        # Nota: resNFe usa dhEmi (data+hora), não dEmi
         if "resNFe" in schema:
             chave = txt("chNFe")
             if not chave:
                 return None
-            # Só interessa NF-e de entrada (tpNF=0) ou saída destinada a nós (tpNF=1)
-            # Para monitorar recebidas: qualquer uma que chegou no nosso DFe
+            data_raw = txt("dhEmi") or txt("dEmi")
             return {
                 "chave":        chave,
                 "numero":       txt("nNF"),
-                "data_emissao": txt("dEmi")[:10] if txt("dEmi") else "",
+                "data_emissao": data_raw[:10] if data_raw else "",
                 "cnpj_prest":   txt("CNPJ"),
                 "nome_prest":   txt("xNome"),
                 "valor":        txt("vNF"),
                 "tipo":         "nfe",
+                "_schema":      "resNFe",  # marca para dedup (preferir procNFe)
             }
 
         # procNFe: estrutura mais complexa
@@ -251,14 +263,16 @@ class NFeClient:
 
         ide = inf.find("nfe:ide", NS)
 
+        data_raw = inf_txt("ide", "dhEmi") or inf_txt("ide", "dEmi")
         return {
             "chave":        inf.get("Id", "").lstrip("NFe"),
             "numero":       inf_txt("ide", "nNF"),
-            "data_emissao": (inf_txt("ide", "dhEmi") or inf_txt("ide", "dEmi"))[:10],
+            "data_emissao": data_raw[:10] if data_raw else "",
             "cnpj_prest":   emit.findtext(f"{{{NS_NFE}}}CNPJ", "") if emit is not None else "",
             "nome_prest":   emit.findtext(f"{{{NS_NFE}}}xNome", "") or emit.findtext(f"{{{NS_NFE}}}xFant", "") if emit is not None else "",
             "valor":        total.findtext(f"{{{NS_NFE}}}vNF", "") if total is not None else "",
             "tipo":         "nfe",
+            "_schema":      "procNFe",  # marca para dedup (preferido sobre resNFe)
         }
 
     def _parsear_evento(self, raw: bytes) -> dict | None:

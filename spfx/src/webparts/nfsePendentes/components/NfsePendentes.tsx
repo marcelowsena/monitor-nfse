@@ -14,6 +14,7 @@ interface IState {
   filtro:              string;
   filtroObra:          string;
   filtroRegiao:        string;
+  filtroTipo:          string;
   sortField:           SortField;
   sortDir:             SortDir;
   abaAtiva:            Aba;
@@ -27,7 +28,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
   constructor(props: INfsePendentesProps) {
     super(props);
     this.state = {
-      obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '', filtroObra: '', filtroRegiao: '',
+      obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '', filtroObra: '', filtroRegiao: '', filtroTipo: '',
       sortField: 'data_emissao', sortDir: 'desc', abaAtiva: 'pendentes',
       filtroResumoObra: '', filtroResumoRegiao: '', filtroResumoMeses: [],
     };
@@ -182,7 +183,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
 
   public render(): React.ReactElement {
     const {
-      carregando, erro, obras, ultimaAtt, filtro, filtroObra, filtroRegiao,
+      carregando, erro, obras, ultimaAtt, filtro, filtroObra, filtroRegiao, filtroTipo,
       sortField, sortDir, abaAtiva, filtroResumoObra, filtroResumoRegiao, filtroResumoMeses,
     } = this.state;
 
@@ -242,6 +243,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     const notasPendentes = obrasFiltradas
       .filter(o => !filtroObra || o.key === filtroObra)
       .flatMap(o => o.pendentes.map(n => ({ ...n, obra_key: o.key, obra_nome: o.nome || o.key })))
+      .filter(n => !filtroTipo || n.tipo === filtroTipo)
       .filter(n => {
         if (!termo) return true;
         const tipoLabel = n.tipo === 'nfe' ? 'material' : 'servico';
@@ -265,6 +267,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     const notasLancadas = obrasFiltradas
       .filter(o => !filtroObra || o.key === filtroObra)
       .flatMap(o => (o.lancadas || []).map(n => ({ ...n, obra_key: o.key, obra_nome: o.nome || o.key })))
+      .filter(n => !filtroTipo || n.tipo === filtroTipo)
       .filter(n => {
         if (!termo) return true;
         const tipoLabel = n.tipo === 'nfe' ? 'material' : 'servico';
@@ -360,15 +363,24 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                 <option key={o.key} value={o.key}>{o.nome}</option>
               ))}
             </select>
+            <select
+              value={filtroTipo}
+              onChange={e => this.setState({ filtroTipo: e.target.value })}
+              className={styles.filtroSelect}
+            >
+              <option value="">Servico e Material</option>
+              <option value="nfse">Servico (NFS-e)</option>
+              <option value="nfe">Material (NF-e)</option>
+            </select>
             <input
               type="text"
-              placeholder="Filtrar por data, numero, prestador, CNPJ, valor ou tipo..."
+              placeholder="Filtrar por data, numero, prestador, CNPJ ou valor..."
               value={filtro}
               onChange={e => this.setState({ filtro: e.target.value })}
               className={styles.filtroInput}
             />
-            {(filtro || filtroObra || filtroRegiao) && (
-              <button className={styles.filtroClear} onClick={() => this.setState({ filtro: '', filtroObra: '', filtroRegiao: '' })}>
+            {(filtro || filtroObra || filtroRegiao || filtroTipo) && (
+              <button className={styles.filtroClear} onClick={() => this.setState({ filtro: '', filtroObra: '', filtroRegiao: '', filtroTipo: '' })}>
                 X
               </button>
             )}

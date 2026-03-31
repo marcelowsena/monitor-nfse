@@ -114,11 +114,22 @@ def processar_obra(
         if chaves_canc_nfe:
             pendentes_nfe_cf = [p for p in pendentes_nfe_cf if p["chave"] not in chaves_canc_nfe]
 
+        # Dedup NF-e do KV por chave
+        pendentes_nfe_cf = list({n["chave"]: n for n in pendentes_nfe_cf}.values())
+        lancadas_nfe_kv  = list({n["chave"]: n for n in lancadas_nfe_kv}.values())
+
         conhecidas_nfe      = {n["chave"] for n in pendentes_nfe_cf}
         chaves_lanc_nfe     = {n["chave"] for n in lancadas_nfe_kv}
         realmente_novas_nfe = [n for n in notas_nfe
                                if n["chave"] not in conhecidas_nfe
                                and n["chave"] not in chaves_lanc_nfe]
+
+        # Atualiza campos vazios em notas NF-e já no KV (ex: resNFe virou procNFe)
+        nfe_map = {n["chave"]: n for n in notas_nfe}
+        for p in pendentes_nfe_cf:
+            nova = nfe_map.get(p["chave"])
+            if nova and (not p.get("numero") or not p.get("data_emissao")):
+                p.update({k: v for k, v in nova.items() if v and not p.get(k)})
 
         para_ver_nfe = realmente_novas_nfe + pendentes_nfe_cf
         print(f"  [NF-e] NSU {nfe_nsu}→{novo_nsu_nfe} | novas candidatas: {len(realmente_novas_nfe)}")
