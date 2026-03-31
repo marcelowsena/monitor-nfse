@@ -21,6 +21,7 @@ export interface INfseItem {
 export interface IObra {
   key:       string;
   nome:      string;
+  regiao?:   string;
   pendentes: INfseItem[];
   lancadas:  INfseItem[];
 }

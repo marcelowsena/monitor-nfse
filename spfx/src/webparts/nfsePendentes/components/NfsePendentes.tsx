@@ -72,7 +72,6 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
       }));
 
       const obras = obrasNormalizadas
-        .filter(o => this.props.exibirLancadas || o.pendentes.length > 0)
         .sort((a, b) => a.key.localeCompare(b.key));
 
       this.setState({ obras, carregando: false, ultimaAtt: new Date().toLocaleString('pt-BR') });
@@ -200,7 +199,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     const mesesDisponiveis = Object.keys(mesesSet).sort().reverse();
 
     const obrasResumo = obras
-      .filter(o => !filtroResumoRegiao || (o as any).regiao === filtroResumoRegiao)
+      .filter(o => !filtroResumoRegiao || o.regiao === filtroResumoRegiao)
       .filter(o => !filtroResumoObra || o.key === filtroResumoObra);
     const notasResumo = obrasResumo
       .flatMap(o => o.pendentes)
@@ -236,7 +235,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     const dadosValor = mesesOrd.map(m => ({ label: this._formatarMes(m), valor: porMes[m].valor }));
 
     // ── Dados para abas de lista ───────────────────────────────────────────────
-    const obrasFiltradas = obras.filter(o => !filtroRegiao || (o as any).regiao === filtroRegiao);
+    const obrasFiltradas = obras.filter(o => !filtroRegiao || o.regiao === filtroRegiao);
     const opcoesObra = obrasFiltradas.map(o => ({ key: o.key, nome: o.nome || o.key }));
     const termo = filtro.toLowerCase();
 
@@ -524,7 +523,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
               >
                 <option value="">Todas as obras</option>
                 {obras
-                  .filter(o => !filtroResumoRegiao || (o as any).regiao === filtroResumoRegiao)
+                  .filter(o => !filtroResumoRegiao || o.regiao === filtroResumoRegiao)
                   .map(o => (
                     <option key={o.key} value={o.key}>{o.nome || o.key}</option>
                   ))

@@ -49,6 +49,10 @@ def processar_obra(
     pendentes_cf = cf.carregar_pendentes(obra_key)
     lancadas_kv  = cf.carregar_lancadas(obra_key)
 
+    # Dedup por chave (evita duplicatas acumuladas no KV)
+    pendentes_cf = list({n["chave"]: n for n in pendentes_cf}.values())
+    lancadas_kv  = list({n["chave"]: n for n in lancadas_kv}.values())
+
     conhecidas          = {n["chave"] for n in pendentes_cf}
     chaves_lancadas_kv  = {n["chave"] for n in lancadas_kv}
 
@@ -171,13 +175,18 @@ def processar_obra(
     )
     print(f"  KV atualizado. NSU salvo: {novo_nsu}")
 
-    # ── Etapa 8: baixa PDFs (apenas NFS-e) ──
+    # ── Etapa 8: baixa PDFs ──
+    pdfs_novos = False
+
     if tipo == "nfse":
+        # Pendentes sem PDF
         sem_pdf = [n for n in pendentes_atualizados if not n.get("has_pdf")]
-        if sem_pdf:
-            print(f"  Baixando PDFs faltantes: {len(sem_pdf)}")
-        pdfs_novos = False
-        for nota in sem_pdf:
+        # Lancadas sem PDF (notas que foram para lancadas antes do PDF ficar disponível)
+        sem_pdf_lanc = [n for n in lancadas_kv if not n.get("has_pdf")]
+        todos_sem_pdf = sem_pdf + sem_pdf_lanc
+        if todos_sem_pdf:
+            print(f"  Baixando PDFs faltantes: {len(sem_pdf)} pendentes + {len(sem_pdf_lanc)} lancadas")
+        for nota in todos_sem_pdf:
             chave = nota["chave"]
             try:
                 pdf = sefaz.baixar_pdf(chave)
@@ -188,17 +197,18 @@ def processar_obra(
                     print(f"    PDF salvo: {chave[:20]}...")
             except Exception as e:
                 print(f"    Erro ao salvar PDF {chave[:20]}...: {e}")
-        # Atualiza has_pdf no KV se algum PDF foi baixado
-        if pdfs_novos:
-            agora2 = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            cf.sincronizar(
-                obra_key, pendentes_atualizados, novo_nsu, agora2,
-                lancadas=lancadas_kv,
-                pendentes_nfe=pendentes_nfe_atualizados,
-                lancadas_nfe=lancadas_nfe_kv,
-                ultimo_nsu_nfe=novo_nsu_nfe,
-            )
-            print(f"  KV atualizado com has_pdf.")
+
+    # Atualiza has_pdf no KV se algum PDF foi baixado
+    if pdfs_novos:
+        agora2 = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        cf.sincronizar(
+            obra_key, pendentes_atualizados, novo_nsu, agora2,
+            lancadas=lancadas_kv,
+            pendentes_nfe=pendentes_nfe_atualizados,
+            lancadas_nfe=lancadas_nfe_kv,
+            ultimo_nsu_nfe=novo_nsu_nfe,
+        )
+        print(f"  KV atualizado com has_pdf.")
 
     # ── Etapa 9: notifica ──
     if pendentes_novos:
