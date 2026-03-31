@@ -17,23 +17,31 @@ $ConfigFile = Join-Path $PSScriptRoot ".deploy-config.json"
 $SppkgPath  = Join-Path $PSScriptRoot "spfx/sharepoint/solution/monitor-nfse.sppkg"
 
 # ── 1. Carrega / pede URL do App Catalog ──────────────────────────────────────
-if (-not $SiteUrl) {
-  if (Test-Path $ConfigFile) {
-    $config  = Get-Content $ConfigFile | ConvertFrom-Json
-    $SiteUrl = $config.appcatalog_url
-  }
+$ClientId = ""
+if (Test-Path $ConfigFile) {
+  $config   = Get-Content $ConfigFile | ConvertFrom-Json
+  if (-not $SiteUrl) { $SiteUrl  = $config.appcatalog_url }
+  $ClientId = $config.client_id
+}
+
+if (-not $ClientId) {
+  Write-Host ""
+  Write-Host "Client ID nao encontrado. Execute primeiro: pwsh ./setup-pnp-consent.ps1" -ForegroundColor Red
+  exit 1
 }
 
 if (-not $SiteUrl) {
   Write-Host ""
-  Write-Host "Informe a URL do App Catalog do SharePoint." -ForegroundColor Cyan
-  Write-Host "Exemplo: https://seutenante.sharepoint.com/sites/appcatalog" -ForegroundColor DarkGray
-  Write-Host "         https://seutenante.sharepoint.com  (tenant app catalog)" -ForegroundColor DarkGray
+  Write-Host "Informe a URL RAIZ do tenant SharePoint (nao a URL de uma pagina)." -ForegroundColor Cyan
+  Write-Host "Exemplo: https://grupoinvestcorp.sharepoint.com" -ForegroundColor DarkGray
   Write-Host ""
-  $SiteUrl = Read-Host "URL do App Catalog"
+  $SiteUrl = Read-Host "URL do tenant"
   $SiteUrl = $SiteUrl.TrimEnd("/")
+  # Remove qualquer path extra, deixa so a raiz
+  $uri = [System.Uri]$SiteUrl
+  $SiteUrl = "$($uri.Scheme)://$($uri.Host)"
   @{ appcatalog_url = $SiteUrl } | ConvertTo-Json | Set-Content $ConfigFile
-  Write-Host "URL salva em .deploy-config.json" -ForegroundColor Green
+  Write-Host "URL salva em .deploy-config.json: $SiteUrl" -ForegroundColor Green
 }
 
 # ── 2. Verifica PnP.PowerShell ────────────────────────────────────────────────
@@ -62,20 +70,35 @@ Write-Host "Package gerado: $SppkgPath" -ForegroundColor Green
 # ── 4. Conecta ao SharePoint ──────────────────────────────────────────────────
 Write-Host ""
 Write-Host "=== Deploy para o App Catalog ===" -ForegroundColor Cyan
-Write-Host "Conectando em: $SiteUrl" -ForegroundColor DarkGray
-Write-Host "(sera aberta uma janela de login)" -ForegroundColor DarkGray
+$AppCatalogUrl = "https://grupoinvestcorp.sharepoint.com/sites/appcatalog"
+Write-Host "Conectando em: $AppCatalogUrl" -ForegroundColor DarkGray
+Write-Host "Abra https://microsoft.com/devicelogin e insira o codigo que aparecer:" -ForegroundColor Yellow
 Write-Host ""
 
-Connect-PnPOnline -Url $SiteUrl -Interactive
+Connect-PnPOnline -Url $AppCatalogUrl -DeviceLogin -ClientId $ClientId -Tenant "grupoinvestcorp.onmicrosoft.com"
+Write-Host "Conectado!" -ForegroundColor Green
 
-# ── 5. Upload + Deploy ────────────────────────────────────────────────────────
+# ── 5. Upload via REST + Deploy ───────────────────────────────────────────────
+$fileBytes   = [System.IO.File]::ReadAllBytes($SppkgPath)
+$fileName    = "monitor-nfse.sppkg"
+$uploadUrl   = "$AppCatalogUrl/_api/web/GetFolderByServerRelativeUrl('AppCatalog')/Files/Add(url='$fileName',overwrite=true)"
+$token       = Get-PnPAccessToken
+$digest      = (Invoke-PnPSPRestMethod -Method Post -Url "/_api/contextinfo" | Select-Object -ExpandProperty FormDigestValue)
+$headers     = @{
+    "Authorization"  = "Bearer $token"
+    "Accept"         = "application/json;odata=verbose"
+    "X-RequestDigest" = $digest
+}
+
 Write-Host "Fazendo upload de monitor-nfse.sppkg..." -ForegroundColor Yellow
-$app = Add-PnPApp -Path $SppkgPath -Scope Tenant -Overwrite -Publish
+$resp = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -Body $fileBytes -ContentType "application/octet-stream"
+
+$appId     = $resp.d.UniqueId
+$deployUrl = "$AppCatalogUrl/_api/web/tenantappcatalog/AvailableApps/GetById('$appId')/Deploy"
+Invoke-RestMethod -Uri $deployUrl -Method Post -Headers $headers -ContentType "application/json" | Out-Null
 
 Write-Host ""
 Write-Host "Deploy concluido!" -ForegroundColor Green
-Write-Host "  App ID : $($app.Id)" -ForegroundColor DarkGray
-Write-Host "  Versao : $($app.AppCatalogVersion)" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "Aguarde ~1 minuto e atualize a pagina do portal no SharePoint." -ForegroundColor Cyan
 
