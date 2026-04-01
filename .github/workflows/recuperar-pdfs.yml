@@ -5,9 +5,15 @@ on:
 
 jobs:
   recuperar:
-    name: Recuperar PDFs
+    name: Recuperar PDFs - ${{ matrix.obra }}
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 60
+
+    # Processa cada obra em paralelo (como o monitor.yml)
+    strategy:
+      fail-fast: false
+      matrix:
+        obra: [max, arium, confraria_benjamin, cora, nola, emanuel_pinto, essenza, massimo, naut, neoon, nort_beach]
 
     steps:
       - name: Checkout
@@ -22,45 +28,46 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
-      - name: Decodificar certificados
+      - name: Decodificar certificado
         run: |
-          mkdir -p /tmp/certs
-          echo "${{ secrets.CERT_MAX_B64 }}"                | base64 -d > /tmp/certs/cert_max.pfx
-          echo "${{ secrets.CERT_ARIUM_B64 }}"              | base64 -d > /tmp/certs/cert_arium.pfx
-          echo "${{ secrets.CERT_CONFRARIA_BENJAMIN_B64 }}" | base64 -d > /tmp/certs/cert_confraria_benjamin.pfx
-          echo "${{ secrets.CERT_CORA_B64 }}"               | base64 -d > /tmp/certs/cert_cora.pfx
-          echo "${{ secrets.CERT_NOLA_B64 }}"               | base64 -d > /tmp/certs/cert_nola.pfx
-          echo "${{ secrets.CERT_EMANUEL_PINTO_B64 }}"      | base64 -d > /tmp/certs/cert_emanuel_pinto.pfx
-          echo "${{ secrets.CERT_ESSENZA_B64 }}"            | base64 -d > /tmp/certs/cert_essenza.pfx
-          echo "${{ secrets.CERT_MASSIMO_B64 }}"            | base64 -d > /tmp/certs/cert_massimo.pfx
-          echo "${{ secrets.CERT_NAUT_B64 }}"               | base64 -d > /tmp/certs/cert_naut.pfx
-          echo "${{ secrets.CERT_NEEON_B64 }}"              | base64 -d > /tmp/certs/cert_neoon.pfx
-          echo "${{ secrets.CERT_NORT_BEACH_B64 }}"         | base64 -d > /tmp/certs/cert_nort_beach.pfx
+          case "${{ matrix.obra }}" in
+            max)                 echo "${{ secrets.CERT_MAX_B64 }}"                | base64 -d > /tmp/cert.pfx ;;
+            arium)               echo "${{ secrets.CERT_ARIUM_B64 }}"              | base64 -d > /tmp/cert.pfx ;;
+            confraria_benjamin)  echo "${{ secrets.CERT_CONFRARIA_BENJAMIN_B64 }}" | base64 -d > /tmp/cert.pfx ;;
+            cora)                echo "${{ secrets.CERT_CORA_B64 }}"               | base64 -d > /tmp/cert.pfx ;;
+            nola)                echo "${{ secrets.CERT_NOLA_B64 }}"               | base64 -d > /tmp/cert.pfx ;;
+            emanuel_pinto)       echo "${{ secrets.CERT_EMANUEL_PINTO_B64 }}"      | base64 -d > /tmp/cert.pfx ;;
+            essenza)             echo "${{ secrets.CERT_ESSENZA_B64 }}"            | base64 -d > /tmp/cert.pfx ;;
+            massimo)             echo "${{ secrets.CERT_MASSIMO_B64 }}"            | base64 -d > /tmp/cert.pfx ;;
+            naut)                echo "${{ secrets.CERT_NAUT_B64 }}"               | base64 -d > /tmp/cert.pfx ;;
+            neoon)               echo "${{ secrets.CERT_NEEON_B64 }}"              | base64 -d > /tmp/cert.pfx ;;
+            nort_beach)          echo "${{ secrets.CERT_NORT_BEACH_B64 }}"         | base64 -d > /tmp/cert.pfx ;;
+          esac
 
       - name: Executar recuperação de PDFs
         env:
-          # Caminhos dos certificados
-          CERT_MAX_PATH:                /tmp/certs/cert_max.pfx
+          # Certificado genérico para esta obra (resolvido no step anterior)
+          CERT_MAX_PATH:                /tmp/cert.pfx
           CERT_MAX_SENHA:               ${{ secrets.CERT_MAX_SENHA }}
-          CERT_ARIUM_PATH:              /tmp/certs/cert_arium.pfx
+          CERT_ARIUM_PATH:              /tmp/cert.pfx
           CERT_ARIUM_SENHA:             ${{ secrets.CERT_ARIUM_SENHA }}
-          CERT_CONFRARIA_BENJAMIN_PATH: /tmp/certs/cert_confraria_benjamin.pfx
+          CERT_CONFRARIA_BENJAMIN_PATH: /tmp/cert.pfx
           CERT_CONFRARIA_BENJAMIN_SENHA: ${{ secrets.CERT_CONFRARIA_BENJAMIN_SENHA }}
-          CERT_CORA_PATH:               /tmp/certs/cert_cora.pfx
+          CERT_CORA_PATH:               /tmp/cert.pfx
           CERT_CORA_SENHA:              ${{ secrets.CERT_CORA_SENHA }}
-          CERT_NOLA_PATH:               /tmp/certs/cert_nola.pfx
+          CERT_NOLA_PATH:               /tmp/cert.pfx
           CERT_NOLA_SENHA:              ${{ secrets.CERT_NOLA_SENHA }}
-          CERT_EMANUEL_PINTO_PATH:      /tmp/certs/cert_emanuel_pinto.pfx
+          CERT_EMANUEL_PINTO_PATH:      /tmp/cert.pfx
           CERT_EMANUEL_PINTO_SENHA:     ${{ secrets.CERT_EMANUEL_PINTO_SENHA }}
-          CERT_ESSENZA_PATH:            /tmp/certs/cert_essenza.pfx
+          CERT_ESSENZA_PATH:            /tmp/cert.pfx
           CERT_ESSENZA_SENHA:           ${{ secrets.CERT_ESSENZA_SENHA }}
-          CERT_MASSIMO_PATH:            /tmp/certs/cert_massimo.pfx
+          CERT_MASSIMO_PATH:            /tmp/cert.pfx
           CERT_MASSIMO_SENHA:           ${{ secrets.CERT_MASSIMO_SENHA }}
-          CERT_NAUT_PATH:               /tmp/certs/cert_naut.pfx
+          CERT_NAUT_PATH:               /tmp/cert.pfx
           CERT_NAUT_SENHA:              ${{ secrets.CERT_NAUT_SENHA }}
-          CERT_NEOON_PATH:              /tmp/certs/cert_neoon.pfx
+          CERT_NEOON_PATH:              /tmp/cert.pfx
           CERT_NEOON_SENHA:             ${{ secrets.CERT_NEEON_SENHA }}
-          CERT_NORT_BEACH_PATH:         /tmp/certs/cert_nort_beach.pfx
+          CERT_NORT_BEACH_PATH:         /tmp/cert.pfx
           CERT_NORT_BEACH_SENHA:        ${{ secrets.CERT_NORT_BEACH_SENHA }}
 
           # Cloudflare Worker
@@ -71,8 +78,8 @@ jobs:
           SIENGE_USER: ${{ secrets.SIENGE_USER }}
           SIENGE_PASS: ${{ secrets.SIENGE_PASS }}
 
-        run: python -m monitor.recuperar_pdfs
+        run: python -m monitor.recuperar_pdfs --obras ${{ matrix.obra }}
 
-      - name: Limpar certificados temporários
+      - name: Remover certificado temporário
         if: always()
-        run: rm -rf /tmp/certs
+        run: rm -f /tmp/cert.pfx

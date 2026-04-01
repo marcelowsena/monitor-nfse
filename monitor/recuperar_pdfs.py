@@ -81,7 +81,7 @@ def recuperar_pdfs(
         for i, nota in enumerate(todos_sem_pdf)
     ]
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
         resultados = executor.map(processar_nota, args_lista)
 
         for tipo, msg, nota_atualizada in resultados:
