@@ -190,13 +190,18 @@ def processar_obra(
     pdfs_novos = False
 
     if tipo == "nfse":
-        # Pendentes sem PDF
-        sem_pdf = [n for n in pendentes_atualizados if not n.get("has_pdf")]
+        # Pendentes sem PDF (mas que não falharam recentemente)
+        sem_pdf = [n for n in pendentes_atualizados if not n.get("has_pdf") and not n.get("pdf_falhou")]
         # Lancadas sem PDF (notas que foram para lancadas antes do PDF ficar disponível)
-        sem_pdf_lanc = [n for n in lancadas_kv if not n.get("has_pdf")]
+        sem_pdf_lanc = [n for n in lancadas_kv if not n.get("has_pdf") and not n.get("pdf_falhou")]
         todos_sem_pdf = sem_pdf + sem_pdf_lanc
+
         if todos_sem_pdf:
             print(f"  Baixando PDFs faltantes: {len(sem_pdf)} pendentes + {len(sem_pdf_lanc)} lancadas")
+        else:
+            print(f"  Nenhum PDF faltante para baixar")
+
+        pdf_falhou_count = 0
         for nota in todos_sem_pdf:
             chave = nota["chave"]
             try:
@@ -204,10 +209,20 @@ def processar_obra(
                 if pdf:
                     cf.salvar_pdf(chave, pdf)
                     nota["has_pdf"] = True
+                    nota.pop("pdf_falhou", None)  # Remove flag de falha se conseguiu
                     pdfs_novos = True
-                    print(f"    PDF salvo: {chave[:20]}...")
+                    print(f"    ✓ PDF salvo: {chave[:20]}... ({len(pdf)} bytes)")
+                else:
+                    print(f"    ✗ PDF não disponível (404/indisponível): {chave[:20]}...")
+                    nota["pdf_falhou"] = True  # Marca para não tentar sempre
+                    pdf_falhou_count += 1
             except Exception as e:
-                print(f"    Erro ao salvar PDF {chave[:20]}...: {e}")
+                print(f"    ✗ Erro ao salvar PDF {chave[:20]}...: {e}")
+                nota["pdf_falhou"] = True
+                pdf_falhou_count += 1
+
+        if pdf_falhou_count > 0:
+            print(f"  {pdf_falhou_count} PDFs não disponíveis (serão retentados depois)")
 
     # Atualiza has_pdf no KV se algum PDF foi baixado
     if pdfs_novos:
