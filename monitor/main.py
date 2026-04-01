@@ -23,12 +23,7 @@ from sienge      import SiengeClient
 from cloudflare  import CloudflareClient
 from notificacao import enviar_teams, enviar_email
 from cnpj_lookup import preencher_nomes
-
-
-def _carregar_obras() -> dict:
-    caminho = os.path.join(os.path.dirname(__file__), "..", "obras.json")
-    with open(caminho, encoding="utf-8") as f:
-        return json.load(f)
+from obras_utils import carregar_obras
 
 
 def processar_obra(
@@ -280,7 +275,7 @@ def main() -> None:
         senha   = os.environ["SIENGE_PASS"],
     )
 
-    obras = _carregar_obras()
+    obras = carregar_obras()
 
     if args.obras:
         obras = {k: v for k, v in obras.items() if k in args.obras}
