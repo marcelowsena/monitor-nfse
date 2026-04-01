@@ -3,9 +3,11 @@ Script para recuperar PDFs que faltam.
 
 Tenta baixar PDFs de todas as notas sem PDF no KV.
 Mostra detalhes de sucesso/falha para cada tentativa.
+Usa requisições paralelas para ser mais rápido.
 """
 
 import argparse
+import concurrent.futures
 import json
 import os
 import sys
@@ -16,6 +18,28 @@ sys.path.insert(0, os.path.dirname(__file__))
 from sefaz       import SefazClient
 from cloudflare  import CloudflareClient
 from obras_utils import carregar_obras
+
+
+def processar_nota(args):
+    """Processa uma nota individual (usada em paralelo)."""
+    nota, idx, total, sefaz, cf = args
+    chave = nota["chave"]
+    numero = nota.get("numero", "?")
+    data = nota.get("data_emissao", "?")
+
+    try:
+        pdf = sefaz.baixar_pdf(chave)
+        if pdf:
+            cf.salvar_pdf(chave, pdf)
+            nota["has_pdf"] = True
+            nota.pop("pdf_falhou", None)
+            return ("sucesso", f"[{idx:3d}/{total}] ✓ {data} | {numero:6s} | {len(pdf):6d} bytes", nota)
+        else:
+            nota["pdf_falhou"] = True
+            return ("indisponivel", f"[{idx:3d}/{total}] ✗ {data} | {numero:6s} | Indisponível na SEFAZ", nota)
+    except Exception as e:
+        nota["pdf_falhou"] = True
+        return ("erro", f"[{idx:3d}/{total}] ✗ {data} | {numero:6s} | Erro: {str(e)[:50]}", nota)
 
 
 def recuperar_pdfs(
@@ -46,35 +70,28 @@ def recuperar_pdfs(
         print("  ✓ Nenhuma nota sem PDF!")
         return
 
-    # Tenta baixar cada uma
+    # Tenta baixar em paralelo (máx 8 workers para não sobrecarregar SEFAZ)
     sucesso = 0
     falha = 0
     indisponivel = 0
+    total = len(todos_sem_pdf)
 
-    for i, nota in enumerate(todos_sem_pdf, 1):
-        chave = nota["chave"]
-        numero = nota.get("numero", "?")
-        data = nota.get("data_emissao", "?")
+    args_lista = [
+        (nota, i + 1, total, sefaz, cf)
+        for i, nota in enumerate(todos_sem_pdf)
+    ]
 
-        try:
-            pdf = sefaz.baixar_pdf(chave)
-            if pdf:
-                # Conseguiu baixar
-                cf.salvar_pdf(chave, pdf)
-                nota["has_pdf"] = True
-                nota.pop("pdf_falhou", None)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        resultados = executor.map(processar_nota, args_lista)
+
+        for tipo, msg, nota_atualizada in resultados:
+            print(f"    {msg}")
+            if tipo == "sucesso":
                 sucesso += 1
-                print(f"    [{i:3d}] ✓ {data} | {numero:6s} | {len(pdf):6d} bytes")
-            else:
-                # SEFAZ retornou None (404, indisponível)
+            elif tipo == "indisponivel":
                 indisponivel += 1
-                nota["pdf_falhou"] = True
-                print(f"    [{i:3d}] ✗ {data} | {numero:6s} | Indisponível na SEFAZ")
-
-        except Exception as e:
-            falha += 1
-            nota["pdf_falhou"] = True
-            print(f"    [{i:3d}] ✗ {data} | {numero:6s} | Erro: {str(e)[:50]}")
+            else:
+                falha += 1
 
     # Atualiza KV com as mudanças
     if sucesso > 0:
