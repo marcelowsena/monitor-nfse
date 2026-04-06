@@ -37,17 +37,17 @@ class CloudflareClient:
         return r.json()
 
     def carregar_pendentes(self, obra_key: str) -> list:
-        """Retorna lista de notas pendentes desta obra."""
+        """Retorna lista de notas NFS-e pendentes desta obra (exclui NF-e)."""
         for item in self._carregar_obras_raw():
             if item.get("key") == obra_key:
-                return item.get("pendentes", [])
+                return [n for n in item.get("pendentes", []) if n.get("tipo") != "nfe"]
         return []
 
     def carregar_lancadas(self, obra_key: str) -> list:
-        """Retorna lista de notas já lançadas no Sienge desta obra."""
+        """Retorna lista de notas NFS-e já lançadas no Sienge desta obra (exclui NF-e)."""
         for item in self._carregar_obras_raw():
             if item.get("key") == obra_key:
-                return item.get("lancadas", [])
+                return [n for n in item.get("lancadas", []) if n.get("tipo") != "nfe"]
         return []
 
     def carregar_pendentes_nfe(self, obra_key: str) -> list:

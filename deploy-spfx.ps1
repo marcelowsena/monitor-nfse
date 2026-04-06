@@ -67,7 +67,7 @@ if (-not (Test-Path $SppkgPath)) {
 }
 Write-Host "Package gerado: $SppkgPath" -ForegroundColor Green
 
-# ── 4. Conecta ao SharePoint ──────────────────────────────────────────────────
+# ── 4. Conecta ao SharePoint Admin ────────────────────────────────────────────
 Write-Host ""
 Write-Host "=== Deploy para o App Catalog ===" -ForegroundColor Cyan
 $AppCatalogUrl = "https://grupoinvestcorp.sharepoint.com/sites/appcatalog"
@@ -75,27 +75,21 @@ Write-Host "Conectando em: $AppCatalogUrl" -ForegroundColor DarkGray
 Write-Host "Abra https://microsoft.com/devicelogin e insira o codigo que aparecer:" -ForegroundColor Yellow
 Write-Host ""
 
-Connect-PnPOnline -Url $AppCatalogUrl -DeviceLogin -ClientId $ClientId -Tenant "grupoinvestcorp.onmicrosoft.com"
+Connect-PnPOnline -Url $AppCatalogUrl -DeviceLogin -ClientId $ClientId -Tenant "grupoinvestcorp.onmicrosoft.com" -PersistLogin
 Write-Host "Conectado!" -ForegroundColor Green
 
-# ── 5. Upload via REST + Deploy ───────────────────────────────────────────────
-$fileBytes   = [System.IO.File]::ReadAllBytes($SppkgPath)
-$fileName    = "monitor-nfse.sppkg"
-$uploadUrl   = "$AppCatalogUrl/_api/web/GetFolderByServerRelativeUrl('AppCatalog')/Files/Add(url='$fileName',overwrite=true)"
-$token       = Get-PnPAccessToken
-$digest      = (Invoke-PnPSPRestMethod -Method Post -Url "/_api/contextinfo" | Select-Object -ExpandProperty FormDigestValue)
-$headers     = @{
-    "Authorization"  = "Bearer $token"
-    "Accept"         = "application/json;odata=verbose"
-    "X-RequestDigest" = $digest
-}
+# ── 5. Upload via Add-PnPFile + Deploy via Invoke-PnPSPRestMethod ─────────────
+$fileName = "monitor-nfse.sppkg"
 
 Write-Host "Fazendo upload de monitor-nfse.sppkg..." -ForegroundColor Yellow
-$resp = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -Body $fileBytes -ContentType "application/octet-stream"
+$fileObj = Add-PnPFile -Path $SppkgPath -Folder "AppCatalog"
+$appId   = $fileObj.UniqueId.ToString()
+Write-Host "Upload OK. UniqueId: $appId" -ForegroundColor DarkGray
 
-$appId     = $resp.d.UniqueId
-$deployUrl = "$AppCatalogUrl/_api/web/tenantappcatalog/AvailableApps/GetById('$appId')/Deploy"
-Invoke-RestMethod -Uri $deployUrl -Method Post -Headers $headers -ContentType "application/json" | Out-Null
+Write-Host "Publicando no tenant app catalog..." -ForegroundColor Yellow
+Invoke-PnPSPRestMethod -Method Post `
+    -Url "/_api/web/tenantappcatalog/AvailableApps/GetById('$appId')/Deploy" `
+    -Content '{"skipFeatureDeployment":true}' | Out-Null
 
 Write-Host ""
 Write-Host "Deploy concluido!" -ForegroundColor Green

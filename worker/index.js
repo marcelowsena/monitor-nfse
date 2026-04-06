@@ -34,6 +34,24 @@ const OBRAS = [
   { key: "nort_beach",          nome: "Nort Beach — HLT Empreendimento 6",  regiao: "litoral"   },
 ];
 
+// Cache em memória com TTL (1 hora = 3600s)
+const CACHE_TTL = 3600;
+let cache = {};
+
+function getCached(key) {
+  if (!cache[key]) return null;
+  const { data, expiry } = cache[key];
+  if (Date.now() > expiry) {
+    delete cache[key];
+    return null;
+  }
+  return data;
+}
+
+function setCached(key, data) {
+  cache[key] = { data, expiry: Date.now() + CACHE_TTL * 1000 };
+}
+
 export default {
   async fetch(request, env) {
     const url    = new URL(request.url);
@@ -61,7 +79,17 @@ export default {
     // ── GET /api/pendentes?token=... ────────────────────────────────
     if (url.pathname === '/api/pendentes' && request.method === 'GET') {
       if (!checkToken()) return json({ error: 'Unauthorized' }, 401);
-      const dados = await Promise.all(OBRAS.map(o => carregarObra(o, env)));
+
+      // Tentar cache primeiro
+      const cacheKey = 'pendentes_all';
+      let dados = getCached(cacheKey);
+
+      if (!dados) {
+        // Se não estiver em cache, carregar do KV e cachear
+        dados = await Promise.all(OBRAS.map(o => carregarObra(o, env)));
+        setCached(cacheKey, dados);
+      }
+
       return json(dados);
     }
 
@@ -111,6 +139,10 @@ export default {
           ? env.KV.put(`${obra}:ultimo_nsu_nfe`, String(ultimo_nsu_nfe))
           : Promise.resolve(),
       ]);
+
+      // Invalidar cache desta obra e do agregado
+      delete cache[`obra_${obra}`];
+      delete cache['pendentes_all'];
 
       return json({ ok: true });
     }
@@ -246,28 +278,66 @@ function renderObra(o) {
 }
 
 async function carregarObra(obra, env) {
-  const [pendentes, lancadas, nsu, verif, pendentesNfe, lancadasNfe] = await Promise.all([
-    env.KV.get(`${obra.key}:pendentes`, 'json'),
-    env.KV.get(`${obra.key}:lancadas`, 'json'),
-    env.KV.get(`${obra.key}:ultimo_nsu`, 'text'),
-    env.KV.get(`${obra.key}:ultima_verificacao`, 'text'),
-    env.KV.get(`${obra.key}:pendentes_nfe`, 'json'),
-    env.KV.get(`${obra.key}:lancadas_nfe`, 'json'),
-  ]);
+  try {
+    // Verificar cache primeiro
+    const cacheKey = `obra_${obra.key}`;
+    let cached = getCached(cacheKey);
+    if (cached) return cached;
 
-  // Garante tipo='nfse' nas notas de serviço e tipo='nfe' nas de material
-  const pend    = (pendentes    || []).map(n => n.tipo ? n : { ...n, tipo: 'nfse' });
-  const lanc    = (lancadas     || []).map(n => n.tipo ? n : { ...n, tipo: 'nfse' });
-  const pendNfe = (pendentesNfe || []).map(n => ({ ...n, tipo: 'nfe' }));
-  const lancNfe = (lancadasNfe  || []).map(n => ({ ...n, tipo: 'nfe' }));
+    const [pendentes, lancadas, nsu, verif, pendentesNfe, lancadasNfe] = await Promise.all([
+      env.KV.get(`${obra.key}:pendentes`, 'json'),
+      env.KV.get(`${obra.key}:lancadas`, 'json'),
+      env.KV.get(`${obra.key}:ultimo_nsu`, 'text'),
+      env.KV.get(`${obra.key}:ultima_verificacao`, 'text'),
+      env.KV.get(`${obra.key}:pendentes_nfe`, 'json'),
+      env.KV.get(`${obra.key}:lancadas_nfe`, 'json'),
+    ]);
 
-  return {
-    key: obra.key, nome: obra.nome, regiao: obra.regiao || '',
-    pendentes: [...pend, ...pendNfe],
-    lancadas:  [...lanc, ...lancNfe],
-    ultimo_nsu: nsu || '0',
-    ultima_verificacao: verif || '—',
-  };
+    // Garante tipo='nfse' nas notas de serviço e tipo='nfe' nas de material
+    const pend    = (pendentes    || []).map(n => n.tipo ? n : { ...n, tipo: 'nfse' });
+    const lanc    = (lancadas     || []).map(n => n.tipo ? n : { ...n, tipo: 'nfse' });
+    const pendNfe = (pendentesNfe || []).map(n => ({ ...n, tipo: 'nfe' }));
+    const lancNfe = (lancadasNfe  || []).map(n => ({ ...n, tipo: 'nfe' }));
+
+    // Simplificado: não verifica PDF por enquanto (economiza N * 11 KV reads)
+    // Será adicionado has_pdf=false em todas as notas para compatibilidade
+    const marcarPdfs = (notas) => {
+      return notas.map(n => ({ ...n, has_pdf: false }));
+    };
+
+    // Marca PDFs em cada lista (agora fake, sem chamadas ao KV)
+    const pendComPdf = marcarPdfs([...pend, ...pendNfe]);
+    const lancComPdf = marcarPdfs([...lanc, ...lancNfe]);
+
+    // Separa NFS-e e NF-e mantendo as listas de pendentes e lancadas separadas
+    const pendentes_nfse = pendComPdf.filter(n => n.tipo === 'nfse');
+    const pendentes_nfe  = pendComPdf.filter(n => n.tipo === 'nfe');
+    const lancadas_nfse  = lancComPdf.filter(n => n.tipo === 'nfse');
+    const lancadas_nfe   = lancComPdf.filter(n => n.tipo === 'nfe');
+
+    const resultado = {
+      key: obra.key, nome: obra.nome, regiao: obra.regiao || '',
+      pendentes:     pendComPdf,
+      lancadas:      lancComPdf,
+      pendentes_nfe: pendentes_nfe,
+      lancadas_nfe:  lancadas_nfe,
+      ultimo_nsu: nsu || '0',
+      ultima_verificacao: verif || '—',
+    };
+
+    // Cachear resultado por 1 hora
+    setCached(cacheKey, resultado);
+
+    return resultado;
+  } catch (e) {
+    console.error(`Erro ao carregar obra ${obra.key}:`, e);
+    return {
+      key: obra.key, nome: obra.nome, regiao: obra.regiao || '',
+      pendentes: [], lancadas: [], pendentes_nfe: [], lancadas_nfe: [],
+      ultimo_nsu: '0', ultima_verificacao: '—',
+      erro: e.message,
+    };
+  }
 }
 
 function esc(s) {

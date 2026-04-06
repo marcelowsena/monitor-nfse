@@ -12,14 +12,9 @@ interface IState {
   erro:                string;
   ultimaAtt:           string;
   filtro:              string;
-  filtroObra:          string;
-  filtroRegiao:        string;
-  filtroTipo:          string;
   sortField:           SortField;
   sortDir:             SortDir;
   abaAtiva:            Aba;
-  filtroResumoObra:    string;
-  filtroResumoRegiao:  string;
   filtroResumoMeses:   string[];
 }
 
@@ -28,9 +23,9 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
   constructor(props: INfsePendentesProps) {
     super(props);
     this.state = {
-      obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '', filtroObra: '', filtroRegiao: '', filtroTipo: '',
+      obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '',
       sortField: 'data_emissao', sortDir: 'desc', abaAtiva: 'pendentes',
-      filtroResumoObra: '', filtroResumoRegiao: '', filtroResumoMeses: [],
+      filtroResumoMeses: [],
     };
   }
 
@@ -183,8 +178,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
 
   public render(): React.ReactElement {
     const {
-      carregando, erro, obras, ultimaAtt, filtro, filtroObra, filtroRegiao, filtroTipo,
-      sortField, sortDir, abaAtiva, filtroResumoObra, filtroResumoRegiao, filtroResumoMeses,
+      carregando, erro, obras, ultimaAtt, filtro,
+      sortField, sortDir, abaAtiva, filtroResumoMeses,
     } = this.state;
 
     const totalPendentes = obras.reduce((s, o) => s + o.pendentes.length, 0);
@@ -194,31 +189,38 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     // Meses disponíveis (ordenados decrescente para o dropdown)
     const mesesSet: Record<string, true> = {};
     obras.forEach(o => o.pendentes.forEach(n => {
-      const m = (n.data_emissao || '').slice(0, 7);
-      if (m.length === 7) mesesSet[m] = true;
+      if (n.tipo === 'nfse') {
+        const m = (n.data_emissao || '').slice(0, 7);
+        if (m.length === 7) mesesSet[m] = true;
+      }
     }));
     const mesesDisponiveis = Object.keys(mesesSet).sort().reverse();
 
-    const obrasResumo = obras
-      .filter(o => !filtroResumoRegiao || o.regiao === filtroResumoRegiao)
-      .filter(o => !filtroResumoObra || o.key === filtroResumoObra);
+    const obrasResumo = obras;
     const notasResumo = obrasResumo
       .flatMap(o => o.pendentes)
+      .filter(n => n.tipo === 'nfse')
       .filter(n => filtroResumoMeses.length === 0 || filtroResumoMeses.indexOf((n.data_emissao || '').slice(0, 7)) >= 0);
 
     const totalResumoQtde  = notasResumo.length;
     const totalResumoValor = notasResumo.reduce((s, n) => s + n.valor, 0);
-    const totalLancadasAll = obras.reduce((s, o) => s + (o.lancadas || []).length, 0);
-    const valorLancadasAll = obras.reduce((s, o) => s + (o.lancadas || []).reduce((sv, n) => sv + n.valor, 0), 0);
+    const totalLancadasAll = obras.reduce((s, o) => s + (o.lancadas || []).filter((n: any) => n.tipo === 'nfse').length, 0);
+    const valorLancadasAll = obras.reduce((s, o) => s + (o.lancadas || []).filter((n: any) => n.tipo === 'nfse').reduce((sv, n) => sv + n.valor, 0), 0);
 
     // Rankings — sempre todas as obras (visão comparativa)
     const rankingQtde = obras
-      .map(o => ({ key: o.key, nome: o.nome || o.key, qtde: o.pendentes.length, valor: o.pendentes.reduce((sv, n) => sv + n.valor, 0) }))
+      .map(o => {
+        const notas = o.pendentes.filter((n: any) => n.tipo === 'nfse');
+        return { key: o.key, nome: o.nome || o.key, qtde: notas.length, valor: notas.reduce((sv, n) => sv + n.valor, 0) };
+      })
       .filter(o => o.qtde > 0)
       .sort((a, b) => b.qtde - a.qtde);
 
     const rankingValor = obras
-      .map(o => ({ key: o.key, nome: o.nome || o.key, qtde: o.pendentes.length, valor: o.pendentes.reduce((sv, n) => sv + n.valor, 0) }))
+      .map(o => {
+        const notas = o.pendentes.filter((n: any) => n.tipo === 'nfse');
+        return { key: o.key, nome: o.nome || o.key, qtde: notas.length, valor: notas.reduce((sv, n) => sv + n.valor, 0) };
+      })
       .filter(o => o.valor > 0)
       .sort((a, b) => b.valor - a.valor);
 
@@ -236,14 +238,11 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     const dadosValor = mesesOrd.map(m => ({ label: this._formatarMes(m), valor: porMes[m].valor }));
 
     // ── Dados para abas de lista ───────────────────────────────────────────────
-    const obrasFiltradas = obras.filter(o => !filtroRegiao || o.regiao === filtroRegiao);
-    const opcoesObra = obrasFiltradas.map(o => ({ key: o.key, nome: o.nome || o.key }));
     const termo = filtro.toLowerCase();
 
-    const notasPendentes = obrasFiltradas
-      .filter(o => !filtroObra || o.key === filtroObra)
+    const notasPendentes = obras
       .flatMap(o => o.pendentes.map(n => ({ ...n, obra_key: o.key, obra_nome: o.nome || o.key })))
-      .filter(n => !filtroTipo || n.tipo === filtroTipo)
+      .filter(n => n.tipo === 'nfse')
       .filter(n => {
         if (!termo) return true;
         const tipoLabel = n.tipo === 'nfe' ? 'material' : 'servico';
@@ -264,10 +263,9 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
         return sortDir === 'asc' ? cmp : -cmp;
       });
 
-    const notasLancadas = obrasFiltradas
-      .filter(o => !filtroObra || o.key === filtroObra)
+    const notasLancadas = obras
       .flatMap(o => (o.lancadas || []).map(n => ({ ...n, obra_key: o.key, obra_nome: o.nome || o.key })))
-      .filter(n => !filtroTipo || n.tipo === filtroTipo)
+      .filter(n => n.tipo === 'nfse')
       .filter(n => {
         if (!termo) return true;
         const tipoLabel = n.tipo === 'nfe' ? 'material' : 'servico';
@@ -322,19 +320,19 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
           <div className={styles.abas}>
             <button
               className={abaAtiva === 'pendentes' ? styles.abaAtiva : styles.abaInativa}
-              onClick={() => this.setState({ abaAtiva: 'pendentes', filtro: '', filtroObra: '' })}
+              onClick={() => this.setState({ abaAtiva: 'pendentes', filtro: '' })}
             >
               Pendentes ({totalPendentes})
             </button>
             <button
               className={abaAtiva === 'lancadas' ? styles.abaAtiva : styles.abaInativa}
-              onClick={() => this.setState({ abaAtiva: 'lancadas', filtro: '', filtroObra: '' })}
+              onClick={() => this.setState({ abaAtiva: 'lancadas', filtro: '' })}
             >
               Lancadas ({totalLancadas})
             </button>
             <button
               className={abaAtiva === 'resumo' ? styles.abaAtiva : styles.abaInativa}
-              onClick={() => this.setState({ abaAtiva: 'resumo', filtro: '', filtroObra: '' })}
+              onClick={() => this.setState({ abaAtiva: 'resumo', filtro: '' })}
             >
               Resumo
             </button>
@@ -344,34 +342,6 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
         {/* Filtros — apenas nas abas de lista */}
         {!carregando && !erro && obras.length > 0 && abaAtiva !== 'resumo' && (
           <div className={styles.filtroBar}>
-            <select
-              value={filtroRegiao}
-              onChange={e => this.setState({ filtroRegiao: e.target.value, filtroObra: '' })}
-              className={styles.filtroSelect}
-            >
-              <option value="">Todas as regioes</option>
-              <option value="joinville">Joinville</option>
-              <option value="litoral">Litoral</option>
-            </select>
-            <select
-              value={filtroObra}
-              onChange={e => this.setState({ filtroObra: e.target.value })}
-              className={styles.filtroSelect}
-            >
-              <option value="">Todas as obras</option>
-              {opcoesObra.map(o => (
-                <option key={o.key} value={o.key}>{o.nome}</option>
-              ))}
-            </select>
-            <select
-              value={filtroTipo}
-              onChange={e => this.setState({ filtroTipo: e.target.value })}
-              className={styles.filtroSelect}
-            >
-              <option value="">Servico e Material</option>
-              <option value="nfse">Servico (NFS-e)</option>
-              <option value="nfe">Material (NF-e)</option>
-            </select>
             <input
               type="text"
               placeholder="Filtrar por data, numero, prestador, CNPJ ou valor..."
@@ -379,8 +349,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
               onChange={e => this.setState({ filtro: e.target.value })}
               className={styles.filtroInput}
             />
-            {(filtro || filtroObra || filtroRegiao || filtroTipo) && (
-              <button className={styles.filtroClear} onClick={() => this.setState({ filtro: '', filtroObra: '', filtroRegiao: '', filtroTipo: '' })}>
+            {filtro && (
+              <button className={styles.filtroClear} onClick={() => this.setState({ filtro: '' })}>
                 X
               </button>
             )}
@@ -408,6 +378,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                         Data Emissao{setaData}
                       </th>
                       <th style={{width: '80px'}}>Nr</th>
+                      <th style={{width: '140px'}}>Chave</th>
                       <th style={{width: '120px'}}>Obra</th>
                       <th>Prestador</th>
                       <th style={{width: '148px'}}>CNPJ</th>
@@ -423,17 +394,24 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                       <tr key={nota.chave || i}>
                         <td>{this._formatarData(nota.data_emissao)}</td>
                         <td className={styles.mono}>{nota.numero || '—'}</td>
+                        <td className={styles.mono} title="Clique para copiar" style={{cursor: 'pointer', color: '#0078d4'}} onClick={() => { navigator.clipboard.writeText(nota.chave || ''); alert('Chave copiada!'); }}>
+                          {nota.chave ? nota.chave.substring(0, 12) + '...' : '—'}
+                        </td>
                         <td>{nota.obra_nome}</td>
                         <td title={nota.nome_prest || ''}>{nota.nome_prest || '—'}</td>
                         <td className={styles.mono}>{this._formatarCNPJ(nota.cnpj_prest)}</td>
                         <td>{nota.tipo === 'nfe' ? 'Material' : 'Servico'}</td>
                         <td className={styles.direita}>{this._formatarValor(nota.valor)}</td>
                         <td className={styles.tdPdf}>
-                          {nota.has_pdf && (
+                          {nota.has_pdf ? (
                             <a href={`${this.props.workerUrl.replace(/\/$/, '')}/api/pdf/${nota.chave}?token=${encodeURIComponent(this.props.apiToken)}`}
                               target="_blank" rel="noreferrer" className={styles.btnPdf} title="Ver DANFSe">
                               PDF
                             </a>
+                          ) : (
+                            <span className={styles.pdfIndisponivel} title="PDF ainda não disponibilizado pela SEFAZ">
+                              —
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -441,7 +419,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={6} className={styles.totalLabel}>TOTAL PENDENTE</td>
+                      <td colSpan={7} className={styles.totalLabel}>TOTAL PENDENTE</td>
                       <td className={`${styles.direita} ${styles.totalValor}`}>
                         {this._formatarValor(notasPendentes.reduce((s, n) => s + n.valor, 0))}
                       </td>
@@ -466,6 +444,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                         Data Emissao{setaData}
                       </th>
                       <th style={{width: '80px'}}>Nr</th>
+                      <th style={{width: '140px'}}>Chave</th>
                       <th style={{width: '100px'}}>Titulo Sienge</th>
                       <th style={{width: '115px'}}>Obra</th>
                       <th>Prestador</th>
@@ -482,6 +461,9 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                       <tr key={nota.chave || i}>
                         <td>{this._formatarData(nota.data_emissao)}</td>
                         <td className={styles.mono}>{nota.numero || '—'}</td>
+                        <td className={styles.mono} title="Clique para copiar" style={{cursor: 'pointer', color: '#0078d4'}} onClick={() => { navigator.clipboard.writeText(nota.chave || ''); alert('Chave copiada!'); }}>
+                          {nota.chave ? nota.chave.substring(0, 12) + '...' : '—'}
+                        </td>
                         <td className={styles.mono}>{nota.numero_titulo || '—'}</td>
                         <td>{nota.obra_nome}</td>
                         <td title={nota.nome_prest || ''}>{nota.nome_prest || '—'}</td>
@@ -489,11 +471,15 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                         <td>{nota.tipo === 'nfe' ? 'Material' : 'Servico'}</td>
                         <td className={styles.direita}>{this._formatarValor(nota.valor)}</td>
                         <td className={styles.tdPdf}>
-                          {nota.has_pdf && (
+                          {nota.has_pdf ? (
                             <a href={`${this.props.workerUrl.replace(/\/$/, '')}/api/pdf/${nota.chave}?token=${encodeURIComponent(this.props.apiToken)}`}
                               target="_blank" rel="noreferrer" className={styles.btnPdf} title="Ver DANFSe">
                               PDF
                             </a>
+                          ) : (
+                            <span className={styles.pdfIndisponivel} title="PDF ainda não disponibilizado pela SEFAZ">
+                              —
+                            </span>
                           )}
                         </td>
                       </tr>
@@ -501,7 +487,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={7} className={styles.totalLabel}>TOTAL LANCADO</td>
+                      <td colSpan={8} className={styles.totalLabel}>TOTAL LANCADO</td>
                       <td className={`${styles.direita} ${styles.totalValorLancada}`}>
                         {this._formatarValor(notasLancadas.reduce((s, n) => s + n.valor, 0))}
                       </td>
@@ -517,30 +503,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
         {!carregando && !erro && abaAtiva === 'resumo' && (
           <div className={styles.resumo}>
 
-            {/* Filtros do Resumo */}
+            {/* Filtros do Resumo — apenas meses */}
             <div className={styles.resumoFiltroBar}>
-              <select
-                value={filtroResumoRegiao}
-                onChange={e => this.setState({ filtroResumoRegiao: e.target.value, filtroResumoObra: '' })}
-                className={styles.filtroSelect}
-              >
-                <option value="">Todas as regioes</option>
-                <option value="joinville">Joinville</option>
-                <option value="litoral">Litoral</option>
-              </select>
-              <select
-                value={filtroResumoObra}
-                onChange={e => this.setState({ filtroResumoObra: e.target.value })}
-                className={styles.filtroSelect}
-              >
-                <option value="">Todas as obras</option>
-                {obras
-                  .filter(o => !filtroResumoRegiao || o.regiao === filtroResumoRegiao)
-                  .map(o => (
-                    <option key={o.key} value={o.key}>{o.nome || o.key}</option>
-                  ))
-                }
-              </select>
               <div className={styles.mesesPills}>
                 {mesesDisponiveis.map(m => {
                   const ativo = filtroResumoMeses.indexOf(m) >= 0;
@@ -560,8 +524,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
                   );
                 })}
               </div>
-              {(filtroResumoObra || filtroResumoRegiao || filtroResumoMeses.length > 0) && (
-                <button className={styles.filtroClear} onClick={() => this.setState({ filtroResumoObra: '', filtroResumoRegiao: '', filtroResumoMeses: [] })}>
+              {filtroResumoMeses.length > 0 && (
+                <button className={styles.filtroClear} onClick={() => this.setState({ filtroResumoMeses: [] })}>
                   X
                 </button>
               )}

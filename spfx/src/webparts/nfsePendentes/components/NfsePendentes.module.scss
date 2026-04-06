@@ -342,6 +342,13 @@ details[open] .lancadasSummary::before {
   }
 }
 
+.pdfIndisponivel {
+  display: inline-block;
+  color: #999;
+  font-size: 12px;
+  cursor: help;
+}
+
 // ── Coluna ordenável ─────────────────────────
 
 .thSortable {
