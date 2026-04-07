@@ -333,15 +333,24 @@ async function carregarObra(obra, env) {
     const pendNfe = (pendentesNfe || []).map(n => ({ ...n, tipo: 'nfe' }));
     const lancNfe = (lancadasNfe  || []).map(n => ({ ...n, tipo: 'nfe' }));
 
-    // Simplificado: não verifica PDF por enquanto (economiza N * 11 KV reads)
-    // Será adicionado has_pdf=false em todas as notas para compatibilidade
-    const marcarPdfs = (notas) => {
-      return notas.map(n => ({ ...n, has_pdf: false }));
+    // Verifica quais PDFs existem (usa cache ou KV uma única vez)
+    const marcarPdfs = async (notas) => {
+      const cacheKey = 'pdfs_existentes';
+      let pdfChaves = getCached(cacheKey);
+
+      if (!pdfChaves) {
+        // Se não estiver em cache, listar todos os PDFs do KV (leitura única)
+        const listaPdfs = await env.KV.list({ prefix: 'pdf:' });
+        pdfChaves = new Set(listaPdfs.keys.map(k => k.name.replace('pdf:', '')));
+        setCached(cacheKey, pdfChaves);
+      }
+
+      return notas.map(n => ({ ...n, has_pdf: pdfChaves.has(n.chave) }));
     };
 
-    // Marca PDFs em cada lista (agora fake, sem chamadas ao KV)
-    const pendComPdf = marcarPdfs([...pend, ...pendNfe]);
-    const lancComPdf = marcarPdfs([...lanc, ...lancNfe]);
+    // Marca PDFs em cada lista
+    const pendComPdf = await marcarPdfs([...pend, ...pendNfe]);
+    const lancComPdf = await marcarPdfs([...lanc, ...lancNfe]);
 
     // Separa NFS-e e NF-e mantendo as listas de pendentes e lancadas separadas
     const pendentes_nfse = pendComPdf.filter(n => n.tipo === 'nfse');
