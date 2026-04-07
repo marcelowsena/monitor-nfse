@@ -116,35 +116,52 @@ export default {
               pendentes_nfe, lancadas_nfe, ultimo_nsu_nfe } = await request.json();
       if (!obra) return json({ error: 'Campo "obra" obrigatorio' }, 400);
 
-      await Promise.all([
+      // Tentar sincronizar com retry (em caso de limite do KV)
+      const putWithRetry = async (key, value) => {
+        for (let i = 0; i < 3; i++) {
+          try {
+            await env.KV.put(key, value);
+            return true;
+          } catch (e) {
+            console.error(`Retry ${i+1}/3 para ${key}:`, e);
+            if (i < 2) await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+        console.error(`Falha permanente ao salvar ${key} após 3 tentativas`);
+        return false;
+      };
+
+      // Executar com retry
+      const results = await Promise.all([
         pendentes !== undefined
-          ? env.KV.put(`${obra}:pendentes`, JSON.stringify(pendentes))
-          : Promise.resolve(),
+          ? putWithRetry(`${obra}:pendentes`, JSON.stringify(pendentes))
+          : Promise.resolve(true),
         lancadas !== undefined
-          ? env.KV.put(`${obra}:lancadas`, JSON.stringify(lancadas))
-          : Promise.resolve(),
+          ? putWithRetry(`${obra}:lancadas`, JSON.stringify(lancadas))
+          : Promise.resolve(true),
         ultimo_nsu !== undefined
-          ? env.KV.put(`${obra}:ultimo_nsu`, String(ultimo_nsu))
-          : Promise.resolve(),
+          ? putWithRetry(`${obra}:ultimo_nsu`, String(ultimo_nsu))
+          : Promise.resolve(true),
         ultima_verificacao !== undefined
-          ? env.KV.put(`${obra}:ultima_verificacao`, ultima_verificacao)
-          : Promise.resolve(),
+          ? putWithRetry(`${obra}:ultima_verificacao`, ultima_verificacao)
+          : Promise.resolve(true),
         pendentes_nfe !== undefined
-          ? env.KV.put(`${obra}:pendentes_nfe`, JSON.stringify(pendentes_nfe))
-          : Promise.resolve(),
+          ? putWithRetry(`${obra}:pendentes_nfe`, JSON.stringify(pendentes_nfe))
+          : Promise.resolve(true),
         lancadas_nfe !== undefined
-          ? env.KV.put(`${obra}:lancadas_nfe`, JSON.stringify(lancadas_nfe))
-          : Promise.resolve(),
+          ? putWithRetry(`${obra}:lancadas_nfe`, JSON.stringify(lancadas_nfe))
+          : Promise.resolve(true),
         ultimo_nsu_nfe !== undefined
-          ? env.KV.put(`${obra}:ultimo_nsu_nfe`, String(ultimo_nsu_nfe))
-          : Promise.resolve(),
+          ? putWithRetry(`${obra}:ultimo_nsu_nfe`, String(ultimo_nsu_nfe))
+          : Promise.resolve(true),
       ]);
 
       // Invalidar cache desta obra e do agregado
       delete cache[`obra_${obra}`];
       delete cache['pendentes_all'];
 
-      return json({ ok: true });
+      const allSuccess = results.every(r => r);
+      return json({ ok: allSuccess, obra, status: allSuccess ? 'synced' : 'partial' });
     }
 
     // ── GET /api/pdf/:chave?token=... ───────────────────────────────
