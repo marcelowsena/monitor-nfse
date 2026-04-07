@@ -167,7 +167,24 @@ export default {
       if (!checkBearer()) return json({ error: 'Unauthorized' }, 401);
       const chave = url.pathname.split('/api/pdf/')[1];
       const buf = await request.arrayBuffer();
-      await env.KV.put(`pdf:${chave}`, buf);
+
+      // Tentar salvar PDF com retry (em caso de limite do KV)
+      let salvo = false;
+      for (let i = 0; i < 3; i++) {
+        try {
+          await env.KV.put(`pdf:${chave}`, buf);
+          salvo = true;
+          break;
+        } catch (e) {
+          if (i === 2) {
+            // Após 3 tentativas, retornar erro mas não falhar a sincronização
+            console.error(`Falha ao salvar PDF ${chave}:`, e);
+            return json({ warning: 'PDF não salvo (KV limite?)', chave }, 202);
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Esperar 1s antes de retry
+        }
+      }
+
       return json({ ok: true });
     }
 
