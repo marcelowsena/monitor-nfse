@@ -13,6 +13,8 @@ interface IState {
     sortDir: SortDir;
     abaAtiva: Aba;
     filtroResumoMeses: string[];
+    filtroAno: string;
+    filtroMes: string;
 }
 export default class NfsePendentes extends React.Component<INfsePendentesProps, IState> {
     constructor(props: INfsePendentesProps);

@@ -37,6 +37,7 @@ declare const styles: {
     erro: string;
     vazio: string;
     resumoFiltroBar: string;
+    filtroSelectGroup: string;
     mesesPills: string;
     mesPill: string;
     mesPillAtivo: string;

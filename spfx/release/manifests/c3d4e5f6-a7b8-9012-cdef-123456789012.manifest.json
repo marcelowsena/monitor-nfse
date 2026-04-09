@@ -35,7 +35,7 @@
     "scriptResources": {
       "nfse-pendentes-web-part": {
         "type": "path",
-        "path": "nfse-pendentes-web-part_a7cc0671440454735531.js"
+        "path": "nfse-pendentes-web-part_f519edce8c8baf6e8465.js"
       },
       "@microsoft/sp-property-pane": {
         "type": "component",

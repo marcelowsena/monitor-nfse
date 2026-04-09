@@ -79,6 +79,8 @@ var NfsePendentes = /** @class */ (function (_super) {
             obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '',
             sortField: 'data_emissao', sortDir: 'desc', abaAtiva: 'pendentes',
             filtroResumoMeses: [],
+            filtroAno: '',
+            filtroMes: '',
         };
         return _this;
     }
@@ -198,7 +200,7 @@ var NfsePendentes = /** @class */ (function (_super) {
     // ── Render principal ────────────────────────────────────────────────────────
     NfsePendentes.prototype.render = function () {
         var _this = this;
-        var _a = this.state, carregando = _a.carregando, erro = _a.erro, obras = _a.obras, ultimaAtt = _a.ultimaAtt, filtro = _a.filtro, sortField = _a.sortField, sortDir = _a.sortDir, abaAtiva = _a.abaAtiva, filtroResumoMeses = _a.filtroResumoMeses;
+        var _a = this.state, carregando = _a.carregando, erro = _a.erro, obras = _a.obras, ultimaAtt = _a.ultimaAtt, filtro = _a.filtro, sortField = _a.sortField, sortDir = _a.sortDir, abaAtiva = _a.abaAtiva, filtroResumoMeses = _a.filtroResumoMeses, filtroAno = _a.filtroAno, filtroMes = _a.filtroMes;
         var totalPendentes = obras.reduce(function (s, o) { return s + o.pendentes.length; }, 0);
         var totalLancadas = obras.reduce(function (s, o) { return s + (o.lancadas || []).length; }, 0);
         // ── Dados para aba Resumo ─────────────────────────────────────────────────
@@ -212,6 +214,23 @@ var NfsePendentes = /** @class */ (function (_super) {
             }
         }); });
         var mesesDisponiveis = Object.keys(mesesSet).sort().reverse();
+        // Extrair anos únicos dos meses disponíveis
+        var anosSet = new Set(mesesDisponiveis.map(function (m) { return m.slice(0, 4); }));
+        var anosDisponiveis = Array.from(anosSet).sort().reverse();
+        // Filtrar meses baseado no ano selecionado
+        var mesesFiltrados = filtroAno
+            ? mesesDisponiveis.filter(function (m) { return m.startsWith(filtroAno); })
+            : mesesDisponiveis;
+        // Se ano + mês selecionados, aplicar filtro
+        if (filtroAno && filtroMes) {
+            this.setState(function (s) {
+                var mesSelecionado = "".concat(filtroAno, "-").concat(filtroMes);
+                if (s.filtroResumoMeses.indexOf(mesSelecionado) < 0) {
+                    return { filtroResumoMeses: [mesSelecionado] };
+                }
+                return null;
+            });
+        }
         var obrasResumo = obras;
         var notasResumo = obrasResumo
             .flatMap(function (o) { return o.pendentes; })
@@ -398,16 +417,26 @@ var NfsePendentes = /** @class */ (function (_super) {
                                 React.createElement("td", null))))))),
             !carregando && !erro && abaAtiva === 'resumo' && (React.createElement("div", { className: styles.resumo },
                 React.createElement("div", { className: styles.resumoFiltroBar },
-                    React.createElement("div", { className: styles.mesesPills }, mesesDisponiveis.map(function (m) {
-                        var ativo = filtroResumoMeses.indexOf(m) >= 0;
-                        return (React.createElement("button", { key: m, className: ativo ? styles.mesPillAtivo : styles.mesPill, onClick: function () {
-                                var novo = ativo
-                                    ? filtroResumoMeses.filter(function (x) { return x !== m; })
-                                    : filtroResumoMeses.concat([m]);
-                                _this.setState({ filtroResumoMeses: novo });
-                            } }, _this._formatarMes(m)));
-                    })),
-                    filtroResumoMeses.length > 0 && (React.createElement("button", { className: styles.filtroClear, onClick: function () { return _this.setState({ filtroResumoMeses: [] }); } }, "X"))),
+                    React.createElement("div", { className: styles.filtroSelectGroup },
+                        React.createElement("label", null, "Ano:"),
+                        React.createElement("select", { value: filtroAno, onChange: function (e) {
+                                _this.setState({ filtroAno: e.target.value, filtroMes: '' });
+                            } },
+                            React.createElement("option", { value: "" }, "Todos"),
+                            anosDisponiveis.map(function (ano) { return (React.createElement("option", { key: ano, value: ano }, ano)); })),
+                        React.createElement("label", null, "M\u00EAs:"),
+                        React.createElement("select", { value: filtroMes, onChange: function (e) {
+                                _this.setState({ filtroMes: e.target.value });
+                            }, disabled: !filtroAno },
+                            React.createElement("option", { value: "" }, "Todos"),
+                            mesesFiltrados.map(function (m) {
+                                var mes = m.slice(5, 7);
+                                return (React.createElement("option", { key: m, value: mes },
+                                    _this._formatarMes(m).split('/')[1],
+                                    " - ",
+                                    _this._formatarMes(m).split('/')[0]));
+                            }))),
+                    filtroResumoMeses.length > 0 && (React.createElement("button", { className: styles.filtroClear, onClick: function () { return _this.setState({ filtroResumoMeses: [], filtroAno: '', filtroMes: '' }); } }, "Limpar Filtro"))),
                 React.createElement("div", { className: styles.resumoCards },
                     React.createElement("div", { className: "".concat(styles.resumoCard, " ").concat(styles.resumoCardPendente) },
                         React.createElement("div", { className: styles.resumoCardLabel }, "Pendentes"),

@@ -16,6 +16,8 @@ interface IState {
   sortDir:             SortDir;
   abaAtiva:            Aba;
   filtroResumoMeses:   string[];
+  filtroAno:           string;
+  filtroMes:           string;
 }
 
 export default class NfsePendentes extends React.Component<INfsePendentesProps, IState> {
@@ -26,6 +28,8 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
       obras: [], carregando: true, erro: '', ultimaAtt: '', filtro: '',
       sortField: 'data_emissao', sortDir: 'desc', abaAtiva: 'pendentes',
       filtroResumoMeses: [],
+      filtroAno: '',
+      filtroMes: '',
     };
   }
 
@@ -180,6 +184,7 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
     const {
       carregando, erro, obras, ultimaAtt, filtro,
       sortField, sortDir, abaAtiva, filtroResumoMeses,
+      filtroAno, filtroMes,
     } = this.state;
 
     const totalPendentes = obras.reduce((s, o) => s + o.pendentes.length, 0);
@@ -195,6 +200,26 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
       }
     }));
     const mesesDisponiveis = Object.keys(mesesSet).sort().reverse();
+
+    // Extrair anos únicos dos meses disponíveis
+    const anosSet = new Set(mesesDisponiveis.map(m => m.slice(0, 4)));
+    const anosDisponiveis = Array.from(anosSet).sort().reverse();
+
+    // Filtrar meses baseado no ano selecionado
+    const mesesFiltrados = filtroAno
+      ? mesesDisponiveis.filter(m => m.startsWith(filtroAno))
+      : mesesDisponiveis;
+
+    // Se ano + mês selecionados, aplicar filtro
+    if (filtroAno && filtroMes) {
+      this.setState(s => {
+        const mesSelecionado = `${filtroAno}-${filtroMes}`;
+        if (s.filtroResumoMeses.indexOf(mesSelecionado) < 0) {
+          return { filtroResumoMeses: [mesSelecionado] };
+        }
+        return null;
+      });
+    }
 
     const obrasResumo = obras;
     const notasResumo = obrasResumo
@@ -503,30 +528,44 @@ export default class NfsePendentes extends React.Component<INfsePendentesProps, 
         {!carregando && !erro && abaAtiva === 'resumo' && (
           <div className={styles.resumo}>
 
-            {/* Filtros do Resumo — apenas meses */}
+            {/* Filtros do Resumo — Ano e Mês em selects */}
             <div className={styles.resumoFiltroBar}>
-              <div className={styles.mesesPills}>
-                {mesesDisponiveis.map(m => {
-                  const ativo = filtroResumoMeses.indexOf(m) >= 0;
-                  return (
-                    <button
-                      key={m}
-                      className={ativo ? styles.mesPillAtivo : styles.mesPill}
-                      onClick={() => {
-                        const novo = ativo
-                          ? filtroResumoMeses.filter(x => x !== m)
-                          : filtroResumoMeses.concat([m]);
-                        this.setState({ filtroResumoMeses: novo });
-                      }}
-                    >
-                      {this._formatarMes(m)}
-                    </button>
-                  );
-                })}
+              <div className={styles.filtroSelectGroup}>
+                <label>Ano:</label>
+                <select
+                  value={filtroAno}
+                  onChange={(e) => {
+                    this.setState({ filtroAno: e.target.value, filtroMes: '' });
+                  }}
+                >
+                  <option value="">Todos</option>
+                  {anosDisponiveis.map(ano => (
+                    <option key={ano} value={ano}>{ano}</option>
+                  ))}
+                </select>
+
+                <label>Mês:</label>
+                <select
+                  value={filtroMes}
+                  onChange={(e) => {
+                    this.setState({ filtroMes: e.target.value });
+                  }}
+                  disabled={!filtroAno}
+                >
+                  <option value="">Todos</option>
+                  {mesesFiltrados.map(m => {
+                    const mes = m.slice(5, 7);
+                    return (
+                      <option key={m} value={mes}>
+                        {this._formatarMes(m).split('/')[1]} - {this._formatarMes(m).split('/')[0]}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
               {filtroResumoMeses.length > 0 && (
-                <button className={styles.filtroClear} onClick={() => this.setState({ filtroResumoMeses: [] })}>
-                  X
+                <button className={styles.filtroClear} onClick={() => this.setState({ filtroResumoMeses: [], filtroAno: '', filtroMes: '' })}>
+                  Limpar Filtro
                 </button>
               )}
             </div>
