@@ -124,7 +124,7 @@ Vá em: **Repositório → Settings → Secrets and variables → Actions**
 |--------|-------|
 | `CERT_MAX_B64` | Base64 do .pfx do Pulse (ver abaixo) |
 | `CERT_MAX_SENHA` | Senha do certificado |
-| `SIENGE_USER` | `trust-marcelo` |
+| `SIENGE_USER` | Usuário do Sienge (ex: `seu-usuario-sienge`) |
 | `SIENGE_PASS` | Senha do Sienge |
 | `SHAREPOINT_SITE_URL` | Ex: `https://empresa.sharepoint.com/sites/financeiro` |
 | `SP_ADDIN_CLIENT_ID` | Client ID gerado no passo 2a |
@@ -157,9 +157,9 @@ pip install -r requirements.txt
 cp "certificados/Pulse/cert.pfx" /tmp/cert_max.pfx
 
 export CERT_MAX_PATH="/tmp/cert_max.pfx"
-export CERT_MAX_SENHA="..."
-export SIENGE_USER="trust-marcelo"
-export SIENGE_PASS="..."
+export CERT_MAX_SENHA="sua-senha-certificado"
+export SIENGE_USER="seu-usuario-sienge"
+export SIENGE_PASS="sua-senha-sienge"
 export SHAREPOINT_SITE_URL="https://empresa.sharepoint.com/sites/..."
 export SP_ADDIN_CLIENT_ID="..."
 export SP_ADDIN_CLIENT_SECRET="..."
